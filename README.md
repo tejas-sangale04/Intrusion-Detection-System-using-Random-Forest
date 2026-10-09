@@ -12,8 +12,8 @@ security or guaranteed detection of unseen ("zero-day") attacks.
 | Phase | What | State |
 |---|---|---|
 | 1 | Dataset discovery, inspection and EDA | **Done** (all 8 files, see below) |
-| 2 | Cleaning and leakage-safe preprocessing | Planned |
-| 3 | Baseline models (LR, DT, RF, HistGradientBoosting) | Planned |
+| 2 | Cleaning and leakage-safe preprocessing | **Done** (see below) |
+| 3 | Baseline models (LR, DT, RF, HistGradientBoosting) | **Done** (random split; see below) |
 | 4 | Leakage control and held-out attack-family evaluation | Planned |
 | 5 | Isolation Forest and hybrid decision policy | Planned |
 | 6 | SHAP explanations | Planned |
@@ -34,6 +34,10 @@ notebooks/          01_dataset_inspection, 02_exploratory_data_analysis
 src/data/io.py      file discovery, encoding detection, header normalisation, chunked reading
 src/data/inspect_dataset.py   streaming statistics, duplicates, samples
 src/data/eda.py     figures, correlation analysis, generated report
+src/data/labels.py  label normalisation, label -> family -> binary mapping
+src/data/preprocess.py        de-duplication, float32 parquet, stratified split
+src/features/feature_pipeline.py  scikit-learn preprocessing fitted on train only
+src/models/train.py, evaluate.py, predict.py  baselines, metrics, scoring CSVs
 reports/            dataset_inspection.md, figures/inspection/, metrics/inspection/
 tests/              pytest suite using small hand-built CSVs
 ```
@@ -167,6 +171,107 @@ Measured by the commands above; full detail in `reports/dataset_inspection.md`.
   all rows rather than a sample.
 * **`Destination Port`** is the only identifier-like column; there are no
   IPs, timestamps or flow IDs in this release of the CSVs.
+
+## Phase 2: cleaning and preprocessing
+
+```powershell
+python -m src.data.preprocess            # -> data/processed/flows.parquet (+ split column)
+python -m src.features.feature_pipeline  # -> models/preprocessor_tree.joblib, preprocessor_scaled.joblib
+```
+
+To follow the steps interactively, open `notebooks/03_preprocessing.ipynb`.
+It runs each step on one day file and shows its effect, calling the same
+functions as the scripts.
+
+The work is split between two places on purpose:
+
+* **Fixed, data-independent steps** run once in `src/data/preprocess.py`:
+  label normalisation, exact-duplicate removal, float32 storage and the split.
+  None of them looks at feature distributions, so none can leak test
+  information into a model.
+* **Learned steps** live in a scikit-learn `Pipeline` (`src/features/feature_pipeline.py`)
+  that is fitted on the training split only and saved with joblib: schema
+  enforcement, excluding `Destination Port`, turning +/-inf into missing,
+  dropping columns that are constant or duplicated *in the training data*,
+  median imputation, and (for scale-sensitive models only) a signed log
+  transform plus standardisation.
+
+| Decision | Why | Trade-off |
+|---|---|---|
+| Remove exact duplicates (same features and label) before splitting | Otherwise copies of one flow land in train and test and inflate scores | Changes class frequencies (PortScan loses 43%), so per-class counts differ from the raw dataset |
+| Keep same-features/different-label rows | The ambiguity is real; hiding it would flatter the model | Caps achievable precision on BENIGN vs PortScan / DoS Hulk |
+| Restore the lost dash in web-attack labels; list every label explicitly | Readable labels; an unknown label must fail loudly | New label spellings need one line added |
+| Group labels into families (DoS, Brute Force, Web Attack, ...) | Holding out "an unseen attack" must remove all variants of it | Family boundaries are a judgement call, documented in `labels.py` |
+| Exclude `Destination Port` by default | Measured on the cleaned data, the port nearly identifies some labels: FTP-Patator goes to port 21 and SSH-Patator to 22 in over 99.9% of flows, and Heartbleed and Infiltration always go to 444. That is a property of this lab setup, not of the attacks, so it would not transfer to other networks | May cost some accuracy; Phase 4 retrains with it to measure how much |
+| inf -> NaN -> training median | Infinity comes from dividing by a zero duration; clipping would invent a value | Imputed rows look like typical flows on those two columns |
+| Drop constant/duplicate columns learned on train | Removes 15 useless inputs without letting test data decide anything | Recomputed if the training data changes |
+| Float32 storage | Halves memory to fit 8 GB laptops | ~7 significant digits; two pairs that differ only beyond that (`Avg Fwd/Bwd Segment Size` vs packet-length means) become identical and are dropped as duplicates |
+| Stratified 70/15/15 split by fine label | Every class, even Heartbleed, appears in train, validation and test | Random split = same days in train and test; it measures in-distribution performance only. Day- and family-held-out splits come in Phase 4 |
+
+Measured results (full dataset):
+
+* 2,830,743 rows in, **2,522,362 after removing 308,381 exact duplicates**
+  (BENIGN 176,613, PortScan 68,111, DoS Hulk 58,224, SSH-Patator 2,678,
+  FTP-Patator 2,005, others under 500).
+* Split: **1,765,653 train / 378,354 validation / 378,355 test**. The smallest
+  classes are very small in evaluation: Heartbleed 8/2/1, Sql Injection
+  15/3/3, Infiltration 25/6/5. Per-class metrics for these are anecdotes, not
+  estimates, and will be reported with their counts.
+* The fitted pipeline maps **78 input features to 62 model features**:
+  `Destination Port` excluded, 8 constant columns dropped, and 7 duplicates
+  dropped (`SYN Flag Count`, `CWE Flag Count`, `Avg Fwd Segment Size`,
+  `Avg Bwd Segment Size`, `Fwd Header Length.1`, `Subflow Fwd Packets`,
+  `Subflow Bwd Packets`). Full record: `reports/metrics/preprocessing/`.
+
+## Phase 3: baseline binary models
+
+```powershell
+python -m src.models.train      # about 10 minutes on 4 cores for the full dataset
+python -m src.models.predict --input some_flows.csv --output predictions.csv
+```
+
+Target: BENIGN = 0, any attack = 1. Every model is fitted on the training
+split, the best one is chosen by **validation F1** (decided before looking at
+test), and the test split is scored once. Threshold 0.5 for all models.
+
+Test split, 378,355 flows (63,882 attacks), measured:
+
+| Model | Accuracy | Precision | Recall | F1 | FPR | ROC-AUC | PR-AUC | False alarms | Missed attacks | Fit (s) | µs/flow |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| Majority class (always BENIGN) | 0.8312 | 0 | 0 | 0 | 0 | 0.5 | 0.1688 | 0 | 63,882 | 0.1 | 2.0 |
+| Logistic Regression | 0.9799 | 0.9526 | 0.9271 | 0.9396 | 0.94% | 0.9934 | 0.9721 | 2,949 | 4,660 | 71 | 3.7 |
+| Decision Tree | 0.9988 | 0.9954 | 0.9976 | 0.9965 | 0.093% | 0.9985 | 0.9955 | 293 | 154 | 125 | 7.8 |
+| Random Forest (100 trees) | 0.9986 | 0.9956 | 0.9963 | 0.9960 | 0.089% | 0.9999 | 0.9996 | 281 | 237 | 203 | 9.5 |
+| HistGradientBoosting | 0.9987 | 0.9955 | 0.9968 | 0.9962 | 0.091% | 0.99995 | 0.9997 | 287 | 203 | 42 | 4.2 |
+
+(µs/flow is end-to-end on 100,000 raw test rows including preprocessing, on
+the 4-core build machine; it will differ on yours.)
+
+What this shows, and what it does not:
+
+* **Accuracy is not informative here.** Predicting BENIGN for every flow
+  scores 83.1% accuracy while detecting nothing. Recall, false-positive rate
+  and PR-AUC separate the models; accuracy barely does.
+* **Linear separation is not enough.** Logistic Regression misses 7.3% of
+  attacks and raises 10x more false alarms. Per label it detects almost no
+  SSH-Patator (0.8%), FTP-Patator (32%), Bot or web attacks (0%).
+* **The three tree models are statistically indistinguishable at this
+  threshold.** Their F1 scores differ by 0.0006, a few dozen flows out of
+  378,355. The Decision Tree won the pre-declared rule (validation F1) and is
+  saved as `models/binary_best.joblib`, but Random Forest and
+  HistGradientBoosting rank flows better (PR-AUC 0.9996-0.9997 vs 0.9955),
+  which matters once the threshold is tuned. The Random Forest is also saved
+  (`binary_random_forest.joblib`) because the hybrid detector is built on it.
+* **Per-attack recall (`reports/metrics/baselines/per_label_test.csv`) shows
+  where the errors are.** Every tree model detects 97-100% of DoS, DDoS,
+  PortScan, brute-force and most web-attack flows. Bot is the hardest class
+  (66-79%). Infiltration (5 test flows), Sql Injection (3) and Heartbleed (1)
+  are too small for their rates to mean anything.
+* **These scores are in-distribution.** The split is random across all days,
+  so the same attack campaigns appear in train and test. Near-perfect scores
+  are typical of CIC-IDS2017 under this protocol and should not be read as
+  real-world performance. Phase 4 holds out whole days and attack families to
+  measure generalisation.
 
 ## Limitations (to be expanded with real findings)
 
