@@ -13,7 +13,7 @@ security or guaranteed detection of unseen ("zero-day") attacks.
 |---|---|---|
 | 1 | Dataset discovery, inspection and EDA | **Done** (all 8 files, see below) |
 | 2 | Cleaning and leakage-safe preprocessing | **Done** (see below) |
-| 3 | Baseline models (LR, DT, RF, HistGradientBoosting) | Planned |
+| 3 | Baseline models (LR, DT, RF, HistGradientBoosting) | **Done** (random split; see below) |
 | 4 | Leakage control and held-out attack-family evaluation | Planned |
 | 5 | Isolation Forest and hybrid decision policy | Planned |
 | 6 | SHAP explanations | Planned |
@@ -37,6 +37,7 @@ src/data/eda.py     figures, correlation analysis, generated report
 src/data/labels.py  label normalisation, label -> family -> binary mapping
 src/data/preprocess.py        de-duplication, float32 parquet, stratified split
 src/features/feature_pipeline.py  scikit-learn preprocessing fitted on train only
+src/models/train.py, evaluate.py, predict.py  baselines, metrics, scoring CSVs
 reports/            dataset_inspection.md, figures/inspection/, metrics/inspection/
 tests/              pytest suite using small hand-built CSVs
 ```
@@ -221,6 +222,56 @@ Measured results (full dataset):
   dropped (`SYN Flag Count`, `CWE Flag Count`, `Avg Fwd Segment Size`,
   `Avg Bwd Segment Size`, `Fwd Header Length.1`, `Subflow Fwd Packets`,
   `Subflow Bwd Packets`). Full record: `reports/metrics/preprocessing/`.
+
+## Phase 3: baseline binary models
+
+```powershell
+python -m src.models.train      # about 10 minutes on 4 cores for the full dataset
+python -m src.models.predict --input some_flows.csv --output predictions.csv
+```
+
+Target: BENIGN = 0, any attack = 1. Every model is fitted on the training
+split, the best one is chosen by **validation F1** (decided before looking at
+test), and the test split is scored once. Threshold 0.5 for all models.
+
+Test split, 378,355 flows (63,882 attacks), measured:
+
+| Model | Accuracy | Precision | Recall | F1 | FPR | ROC-AUC | PR-AUC | False alarms | Missed attacks | Fit (s) | µs/flow |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| Majority class (always BENIGN) | 0.8312 | 0 | 0 | 0 | 0 | 0.5 | 0.1688 | 0 | 63,882 | 0.1 | 2.0 |
+| Logistic Regression | 0.9799 | 0.9526 | 0.9271 | 0.9396 | 0.94% | 0.9934 | 0.9721 | 2,949 | 4,660 | 71 | 3.7 |
+| Decision Tree | 0.9988 | 0.9954 | 0.9976 | 0.9965 | 0.093% | 0.9985 | 0.9955 | 293 | 154 | 125 | 7.8 |
+| Random Forest (100 trees) | 0.9986 | 0.9956 | 0.9963 | 0.9960 | 0.089% | 0.9999 | 0.9996 | 281 | 237 | 203 | 9.5 |
+| HistGradientBoosting | 0.9987 | 0.9955 | 0.9968 | 0.9962 | 0.091% | 0.99995 | 0.9997 | 287 | 203 | 42 | 4.2 |
+
+(µs/flow is end-to-end on 100,000 raw test rows including preprocessing, on
+the 4-core build machine; it will differ on yours.)
+
+What this shows, and what it does not:
+
+* **Accuracy is not informative here.** Predicting BENIGN for every flow
+  scores 83.1% accuracy while detecting nothing. Recall, false-positive rate
+  and PR-AUC separate the models; accuracy barely does.
+* **Linear separation is not enough.** Logistic Regression misses 7.3% of
+  attacks and raises 10x more false alarms. Per label it detects almost no
+  SSH-Patator (0.8%), FTP-Patator (32%), Bot or web attacks (0%).
+* **The three tree models are statistically indistinguishable at this
+  threshold.** Their F1 scores differ by 0.0006, a few dozen flows out of
+  378,355. The Decision Tree won the pre-declared rule (validation F1) and is
+  saved as `models/binary_best.joblib`, but Random Forest and
+  HistGradientBoosting rank flows better (PR-AUC 0.9996-0.9997 vs 0.9955),
+  which matters once the threshold is tuned. The Random Forest is also saved
+  (`binary_random_forest.joblib`) because the hybrid detector is built on it.
+* **Per-attack recall (`reports/metrics/baselines/per_label_test.csv`) shows
+  where the errors are.** Every tree model detects 97-100% of DoS, DDoS,
+  PortScan, brute-force and most web-attack flows. Bot is the hardest class
+  (66-79%). Infiltration (5 test flows), Sql Injection (3) and Heartbleed (1)
+  are too small for their rates to mean anything.
+* **These scores are in-distribution.** The split is random across all days,
+  so the same attack campaigns appear in train and test. Near-perfect scores
+  are typical of CIC-IDS2017 under this protocol and should not be read as
+  real-world performance. Phase 4 holds out whole days and attack families to
+  measure generalisation.
 
 ## Limitations (to be expanded with real findings)
 
