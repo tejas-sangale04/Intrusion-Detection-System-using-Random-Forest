@@ -1,3 +1,16 @@
 label,rows,redundant_copies,redundant_pct
-BENIGN,97718,2622,2.68
+BENIGN,2273097,176613,7.77
+Bot,1966,13,0.66
 DDoS,128027,11,0.01
+DoS GoldenEye,10293,7,0.07
+DoS Hulk,231073,58224,25.2
+DoS Slowhttptest,5499,271,4.93
+DoS slowloris,5796,411,7.09
+FTP-Patator,7938,2005,25.26
+Heartbleed,11,0,0.0
+Infiltration,36,0,0.0
+PortScan,158930,68111,42.86
+SSH-Patator,5897,2678,45.41
+Web Attack � Brute Force,1507,37,2.46
+Web Attack � Sql Injection,21,0,0.0
+Web Attack � XSS,652,0,0.0

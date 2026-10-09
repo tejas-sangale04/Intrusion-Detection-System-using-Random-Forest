@@ -1,13 +1,20 @@
 {
   "raw_dir": "data/raw",
-  "file_count": 1,
-  "total_rows": 225745,
+  "file_count": 8,
+  "total_rows": 2830743,
   "column_count": 79,
   "feature_count": 78,
   "label_column": "Label",
-  "label_count": 2,
+  "label_count": 15,
   "encodings": {
-    "Friday-WorkingHours-Afternoon-DDos.pcap_ISCX.csv": "utf-8"
+    "Friday-WorkingHours-Afternoon-DDos.pcap_ISCX.csv": "utf-8",
+    "Friday-WorkingHours-Afternoon-PortScan.pcap_ISCX.csv": "utf-8",
+    "Friday-WorkingHours-Morning.pcap_ISCX.csv": "utf-8",
+    "Monday-WorkingHours.pcap_ISCX.csv": "utf-8",
+    "Thursday-WorkingHours-Afternoon-Infilteration.pcap_ISCX.csv": "utf-8",
+    "Thursday-WorkingHours-Morning-WebAttacks.pcap_ISCX.csv": "utf-8",
+    "Tuesday-WorkingHours.pcap_ISCX.csv": "utf-8",
+    "Wednesday-workingHours.pcap_ISCX.csv": "utf-8"
   },
   "header_differences": {},
   "unparsed_lines_total": 0,
@@ -23,9 +30,7 @@
   "rows_with_nonfinite_note": "per-column counts are in column_stats.csv; a row may be counted in several columns",
   "constant_columns": [
     "Bwd PSH Flags",
-    "Fwd URG Flags",
     "Bwd URG Flags",
-    "CWE Flag Count",
     "Fwd Avg Bytes/Bulk",
     "Fwd Avg Packets/Bulk",
     "Fwd Avg Bulk Rate",
@@ -43,26 +48,12 @@
       "Subflow Bwd Packets"
     ],
     [
-      "Total Length of Fwd Packets",
-      "Subflow Fwd Bytes"
-    ],
-    [
-      "Total Length of Bwd Packets",
-      "Subflow Bwd Bytes"
-    ],
-    [
-      "Fwd Packet Length Mean",
-      "Avg Fwd Segment Size"
-    ],
-    [
       "Fwd PSH Flags",
       "SYN Flag Count"
     ],
     [
       "Bwd PSH Flags",
-      "Fwd URG Flags",
       "Bwd URG Flags",
-      "CWE Flag Count",
       "Fwd Avg Bytes/Bulk",
       "Fwd Avg Packets/Bulk",
       "Fwd Avg Bulk Rate",
@@ -71,28 +62,37 @@
       "Bwd Avg Bulk Rate"
     ],
     [
-      "Fwd Header Length",
-      "Fwd Header Length.1"
+      "Fwd URG Flags",
+      "CWE Flag Count"
     ],
     [
-      "RST Flag Count",
-      "ECE Flag Count"
+      "Fwd Header Length",
+      "Fwd Header Length.1"
     ]
   ],
   "identifier_columns": {
     "Destination Port": "port"
   },
-  "non_ascii_labels": [],
+  "non_ascii_labels": [
+    "Web Attack � Brute Force",
+    "Web Attack � XSS",
+    "Web Attack � Sql Injection"
+  ],
   "duplicates": {
-    "rows": 225745,
-    "unique_rows": 223112,
-    "redundant_copies": 2633,
-    "redundant_copies_within_files": 2633,
-    "redundant_copies_across_files": 0,
-    "unique_feature_vectors": 223112,
-    "conflicting_feature_vectors": 0,
-    "rows_in_conflicting_vectors": 0,
-    "conflicting_label_sets": {}
+    "rows": 2830743,
+    "unique_rows": 2522362,
+    "redundant_copies": 308381,
+    "redundant_copies_within_files": 256479,
+    "redundant_copies_across_files": 51902,
+    "unique_feature_vectors": 2521664,
+    "conflicting_feature_vectors": 698,
+    "rows_in_conflicting_vectors": 7020,
+    "conflicting_label_sets": {
+      "BENIGN | PortScan": 564,
+      "BENIGN | DoS Hulk": 130,
+      "BENIGN | DDoS": 3,
+      "BENIGN | DoS slowloris": 1
+    }
   },
   "settings": {
     "chunksize": 200000,

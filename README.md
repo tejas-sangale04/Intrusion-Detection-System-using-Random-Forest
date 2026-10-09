@@ -11,7 +11,7 @@ security or guaranteed detection of unseen ("zero-day") attacks.
 
 | Phase | What | State |
 |---|---|---|
-| 1 | Dataset discovery, inspection and EDA | **Code done and unit-tested; not yet run on the real dataset** |
+| 1 | Dataset discovery, inspection and EDA | **Done** (all 8 files, see below) |
 | 2 | Cleaning and leakage-safe preprocessing | Planned |
 | 3 | Baseline models (LR, DT, RF, HistGradientBoosting) | Planned |
 | 4 | Leakage control and held-out attack-family evaluation | Planned |
@@ -22,8 +22,8 @@ security or guaranteed detection of unseen ("zero-day") attacks.
 | 9 | Dataset replay, then optional live flows in an authorised lab | Planned |
 | 10 | Optional reinforcement-learning response simulation | Planned |
 
-No dataset statistics or model results appear in this README until they have
-been produced by the code in this repository.
+Every dataset number or model result in this README was produced by the code
+in this repository.
 
 ## Project layout (current)
 
@@ -127,14 +127,54 @@ Outputs:
   them with evidence and documents the trade-off.
 * **No seaborn.** Matplotlib covers every Phase 1 plot, so one fewer dependency.
 
+### Phase 1 findings (full MachineLearningCSV, 8 files)
+
+Measured by the commands above; full detail in `reports/dataset_inspection.md`.
+
+* **2,830,743 rows, 78 features + `Label`, 15 labels.** 80.30% BENIGN. The
+  rarest classes are tiny: Infiltration 36, Web Attack Sql Injection 21,
+  Heartbleed 11 rows. Accuracy is therefore meaningless as a headline metric:
+  predicting BENIGN for everything already scores 80.3%.
+* **Every attack label occurs in exactly one file (one day).** BENIGN appears
+  in all eight. A split by day therefore means the test day's attacks were
+  never seen in training. That is the held-out-attack experiment, not a
+  normal supervised test, and the evaluation design in Phase 4 has to treat
+  it that way.
+* **All files parse cleanly as UTF-8 with identical headers** (whitespace in
+  65 of 79 names, `Fwd Header Length` duplicated). The three web-attack labels
+  contain the Unicode replacement character (`Web Attack � Brute Force`), so
+  the original dash was already lost before distribution; Phase 2 maps them
+  to `Web Attack - ...`.
+* **Non-finite values are confined to two rate columns:** `Flow Bytes/s`
+  (1,358 NaN, 1,509 +inf) and `Flow Packets/s` (2,867 +inf). These are rates
+  divided by a zero duration.
+* **10.89% of rows (308,381) are redundant exact duplicates**, 256,479 within
+  a file and 51,902 across files. They are concentrated in attacks:
+  45.4% of SSH-Patator, 42.9% of PortScan, 25.3% of FTP-Patator and 25.2% of
+  DoS Hulk rows are repeats. A random row split would put copies of the same
+  flow on both sides and inflate test scores, so duplicates are removed
+  before splitting.
+* **698 feature vectors appear with two labels** (7,020 rows), mostly
+  BENIGN vs PortScan (564) and BENIGN vs DoS Hulk (130). These flows are
+  indistinguishable from the features alone, so no model can be perfect on them.
+* **Unusable columns:** 8 columns are constant over the whole dataset (all
+  `Bulk` rate fields plus `Bwd PSH Flags`, `Bwd URG Flags`), and 5 pairs of columns
+  are exact copies (`Total Fwd Packets` = `Subflow Fwd Packets`,
+  `Total Backward Packets` = `Subflow Bwd Packets`, `Fwd PSH Flags` =
+  `SYN Flag Count`, `Fwd URG Flags` = `CWE Flag Count`, and the duplicated
+  `Fwd Header Length`). Some identities found in a single file (for example
+  `Subflow Fwd Bytes`) do not hold globally, which is why they are measured on
+  all rows rather than a sample.
+* **`Destination Port`** is the only identifier-like column; there are no
+  IPs, timestamps or flow IDs in this release of the CSVs.
+
 ## Limitations (to be expanded with real findings)
 
 * CIC-IDS2017 was recorded in 2017 in a lab network with scripted attacks; it
   is old, heavily imbalanced, and differs from real enterprise traffic.
   Results on it do not imply performance on modern production networks.
-* Attack types appear to be concentrated in particular days' files; the
-  label-by-file table from Phase 1 will confirm this on the real data. It
-  constrains how train and test can be separated and is examined in Phase 4.
+* Each attack type was recorded on a single day (confirmed in Phase 1), so
+  attack-family and day effects are confounded. Phase 4 examines this.
 
 ## Ethical use
 

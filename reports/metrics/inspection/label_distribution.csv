@@ -1,3 +1,16 @@
-label,Friday-WorkingHours-Afternoon-DDos.pcap_ISCX.csv,total,pct_of_rows
-DDoS,128027,128027,56.7131
-BENIGN,97718,97718,43.2869
+label,Friday-WorkingHours-Afternoon-DDos.pcap_ISCX.csv,Friday-WorkingHours-Afternoon-PortScan.pcap_ISCX.csv,Friday-WorkingHours-Morning.pcap_ISCX.csv,Monday-WorkingHours.pcap_ISCX.csv,Thursday-WorkingHours-Afternoon-Infilteration.pcap_ISCX.csv,Thursday-WorkingHours-Morning-WebAttacks.pcap_ISCX.csv,Tuesday-WorkingHours.pcap_ISCX.csv,Wednesday-workingHours.pcap_ISCX.csv,total,pct_of_rows
+BENIGN,97718,127537,189067,529918,288566,168186,432074,440031,2273097,80.3004
+DoS Hulk,0,0,0,0,0,0,0,231073,231073,8.163
+PortScan,0,158930,0,0,0,0,0,0,158930,5.6144
+DDoS,128027,0,0,0,0,0,0,0,128027,4.5227
+DoS GoldenEye,0,0,0,0,0,0,0,10293,10293,0.3636
+FTP-Patator,0,0,0,0,0,0,7938,0,7938,0.2804
+SSH-Patator,0,0,0,0,0,0,5897,0,5897,0.2083
+DoS slowloris,0,0,0,0,0,0,0,5796,5796,0.2048
+DoS Slowhttptest,0,0,0,0,0,0,0,5499,5499,0.1943
+Bot,0,0,1966,0,0,0,0,0,1966,0.0695
+Web Attack � Brute Force,0,0,0,0,0,1507,0,0,1507,0.0532
+Web Attack � XSS,0,0,0,0,0,652,0,0,652,0.023
+Infiltration,0,0,0,0,36,0,0,0,36,0.0013
+Web Attack � Sql Injection,0,0,0,0,0,21,0,0,21,0.0007
+Heartbleed,0,0,0,0,0,0,0,11,11,0.0004
