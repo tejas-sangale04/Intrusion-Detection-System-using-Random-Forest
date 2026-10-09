@@ -14,7 +14,7 @@ security or guaranteed detection of unseen ("zero-day") attacks.
 | 1 | Dataset discovery, inspection and EDA | **Done** (all 8 files, see below) |
 | 2 | Cleaning and leakage-safe preprocessing | **Done** (see below) |
 | 3 | Baseline models (LR, DT, RF, HistGradientBoosting) | **Done** (random split; see below) |
-| 4 | Leakage control and held-out attack-family evaluation | Planned |
+| 4 | Leakage control and held-out attack-family evaluation | **In progress** (code written and tested; full run not yet done) |
 | 5 | Isolation Forest and hybrid decision policy | Planned |
 | 6 | SHAP explanations | Planned |
 | 7 | FastAPI backend | Planned |
@@ -272,6 +272,20 @@ What this shows, and what it does not:
   are typical of CIC-IDS2017 under this protocol and should not be read as
   real-world performance. Phase 4 holds out whole days and attack families to
   measure generalisation.
+
+## Phase 4 (in progress): generalisation
+
+Code: `src/models/generalization.py` (run `python -m src.models.generalization`,
+about 45 minutes on 4 cores). It runs three experiments with Random Forest and
+HistGradientBoosting: leave one attack family out of training, train on
+Monday-Thursday and test on Friday, and retrain with `Destination Port`.
+The full run has not completed yet, so no results are reported here.
+
+Next steps when work resumes:
+1. Run `python -m src.models.generalization` and write up the results here.
+2. Open the Phase 4 pull request from branch `phase-4-generalization`.
+3. Phase 5: Isolation Forest on benign training flows, evaluated on the same
+   held-out families, then the hybrid decision policy.
 
 ## Limitations (to be expanded with real findings)
 

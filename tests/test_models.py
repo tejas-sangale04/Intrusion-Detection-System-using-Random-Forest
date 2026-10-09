@@ -76,3 +76,38 @@ def test_training_end_to_end_saves_a_usable_model(processed: Path, tmp_path: Pat
     raw = raw.rename(columns={"Flow Duration": " Flow Duration"})
     preds = predict.predict_frame(pipe, raw, card["threshold"])
     assert ((preds["is_attack"] == raw["is_attack"].to_numpy()).mean()) > 0.95
+
+
+def test_generalization_summary_separates_held_out_seen_and_benign() -> None:
+    from src.models.generalization import summarise
+
+    test = pd.DataFrame({
+        "is_attack": [0, 0, 0, 0, 1, 1, 1, 1],
+        "label": ["BENIGN"] * 4 + ["Bot", "Bot", "DDoS", "DDoS"],
+    })
+    score = np.array([0.1, 0.2, 0.6, 0.3, 0.9, 0.4, 0.8, 0.7])
+    res = summarise(test, score, test["label"] == "Bot")
+    assert res["held_out_rows"] == 2 and res["held_out_recall"] == 0.5
+    assert res["seen_attack_recall"] == 1.0
+    assert res["fpr"] == 0.25
+    assert res["held_out_recall_by_label"] == {"Bot": 0.5}
+
+
+def test_leave_one_family_out_never_trains_on_the_held_out_family(processed: Path, monkeypatch) -> None:
+    from src.models import generalization as g
+
+    df = pd.read_parquet(processed)
+    df.loc[df.index[::7], ["label", "family"]] = "Bot"
+    df.loc[df["label"] == "Bot", "is_attack"] = 1
+    seen_families = []
+    real = g.fit_and_score
+
+    def spy(model_name, train, test, feats, rf_trees, exclude=None):
+        seen_families.append(set(train["family"]))
+        return real(model_name, train, test, feats, rf_trees, exclude)
+
+    monkeypatch.setattr(g, "fit_and_score", spy)
+    rows = g.leave_one_family_out(df, g.feature_columns(df), "random_forest", 5)
+    held = [r["held_out"] for r in rows]
+    assert held == ["Bot", "DDoS"]
+    assert all(fam not in fams for fam, fams in zip(held, seen_families))
