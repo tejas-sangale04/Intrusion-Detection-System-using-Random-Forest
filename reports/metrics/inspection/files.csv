@@ -1,0 +1,2 @@
+file,encoding,rows,data_lines,unparsed_lines,all_empty_rows,columns,columns_with_whitespace,duplicate_column_names,labels,seconds
+Friday-WorkingHours-Afternoon-DDos.pcap_ISCX.csv,utf-8,225745,225745,0,0,79,65,Fwd Header Length -> Fwd Header Length.1,2,11.24

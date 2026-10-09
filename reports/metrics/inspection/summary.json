@@ -1,0 +1,103 @@
+{
+  "raw_dir": "data/raw",
+  "file_count": 1,
+  "total_rows": 225745,
+  "column_count": 79,
+  "feature_count": 78,
+  "label_column": "Label",
+  "label_count": 2,
+  "encodings": {
+    "Friday-WorkingHours-Afternoon-DDos.pcap_ISCX.csv": "utf-8"
+  },
+  "header_differences": {},
+  "unparsed_lines_total": 0,
+  "all_empty_rows_total": 0,
+  "columns_with_nan": [
+    "Flow Bytes/s"
+  ],
+  "columns_with_inf": [
+    "Flow Bytes/s",
+    "Flow Packets/s"
+  ],
+  "columns_with_unparseable": [],
+  "rows_with_nonfinite_note": "per-column counts are in column_stats.csv; a row may be counted in several columns",
+  "constant_columns": [
+    "Bwd PSH Flags",
+    "Fwd URG Flags",
+    "Bwd URG Flags",
+    "CWE Flag Count",
+    "Fwd Avg Bytes/Bulk",
+    "Fwd Avg Packets/Bulk",
+    "Fwd Avg Bulk Rate",
+    "Bwd Avg Bytes/Bulk",
+    "Bwd Avg Packets/Bulk",
+    "Bwd Avg Bulk Rate"
+  ],
+  "identical_column_groups": [
+    [
+      "Total Fwd Packets",
+      "Subflow Fwd Packets"
+    ],
+    [
+      "Total Backward Packets",
+      "Subflow Bwd Packets"
+    ],
+    [
+      "Total Length of Fwd Packets",
+      "Subflow Fwd Bytes"
+    ],
+    [
+      "Total Length of Bwd Packets",
+      "Subflow Bwd Bytes"
+    ],
+    [
+      "Fwd Packet Length Mean",
+      "Avg Fwd Segment Size"
+    ],
+    [
+      "Fwd PSH Flags",
+      "SYN Flag Count"
+    ],
+    [
+      "Bwd PSH Flags",
+      "Fwd URG Flags",
+      "Bwd URG Flags",
+      "CWE Flag Count",
+      "Fwd Avg Bytes/Bulk",
+      "Fwd Avg Packets/Bulk",
+      "Fwd Avg Bulk Rate",
+      "Bwd Avg Bytes/Bulk",
+      "Bwd Avg Packets/Bulk",
+      "Bwd Avg Bulk Rate"
+    ],
+    [
+      "Fwd Header Length",
+      "Fwd Header Length.1"
+    ],
+    [
+      "RST Flag Count",
+      "ECE Flag Count"
+    ]
+  ],
+  "identifier_columns": {
+    "Destination Port": "port"
+  },
+  "non_ascii_labels": [],
+  "duplicates": {
+    "rows": 225745,
+    "unique_rows": 223112,
+    "redundant_copies": 2633,
+    "redundant_copies_within_files": 2633,
+    "redundant_copies_across_files": 0,
+    "unique_feature_vectors": 223112,
+    "conflicting_feature_vectors": 0,
+    "rows_in_conflicting_vectors": 0,
+    "conflicting_label_sets": {}
+  },
+  "settings": {
+    "chunksize": 200000,
+    "per_label": 5000,
+    "uniform_size": 100000,
+    "seed": 42
+  }
+}

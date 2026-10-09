@@ -1,0 +1,57 @@
+feature_a,feature_b,pearson_r
+Total Fwd Packets,Subflow Fwd Packets,1.0
+Fwd Packet Length Mean,Avg Fwd Segment Size,1.0
+Total Length of Fwd Packets,Subflow Fwd Bytes,1.0
+Bwd Packet Length Mean,Avg Bwd Segment Size,1.0
+Total Length of Bwd Packets,Subflow Bwd Bytes,1.0
+Total Backward Packets,Subflow Bwd Packets,1.0
+Fwd Header Length,Fwd Header Length.1,1.0
+Fwd PSH Flags,SYN Flag Count,1.0
+RST Flag Count,ECE Flag Count,1.0
+Packet Length Mean,Average Packet Size,0.9993779967284794
+Flow IAT Max,Idle Max,0.9977704481348268
+Flow Duration,Fwd IAT Total,0.9970244028076672
+Flow IAT Max,Fwd IAT Max,0.9952189747314204
+Fwd IAT Max,Idle Max,0.9935390842337409
+Bwd Packet Length Max,Bwd Packet Length Std,0.9927551437961983
+Fwd Packet Length Max,Fwd Packet Length Std,0.9916665724507915
+Active Mean,Active Min,0.9853751335763361
+Max Packet Length,Packet Length Std,0.984117758471397
+Flow Packets/s,Fwd Packets/s,0.9830492882217767
+Fwd IAT Std,Fwd IAT Max,0.9807668797071374
+Flow IAT Std,Flow IAT Max,0.9783973663795151
+Flow IAT Std,Idle Max,0.9765189554304659
+Bwd Header Length,Subflow Bwd Packets,0.9733036169508985
+Total Backward Packets,Bwd Header Length,0.9733036169508985
+Flow IAT Max,Fwd IAT Std,0.9719090338372496
+Total Backward Packets,Subflow Bwd Bytes,0.970964592084509
+Total Backward Packets,Total Length of Bwd Packets,0.970964592084509
+Subflow Bwd Packets,Subflow Bwd Bytes,0.970964592084509
+Total Length of Bwd Packets,Subflow Bwd Packets,0.9709645920845089
+Fwd IAT Std,Idle Max,0.9705956164201689
+Flow IAT Std,Fwd IAT Max,0.9695840136950181
+Fwd Header Length.1,Subflow Fwd Packets,0.9678352765165701
+Total Fwd Packets,Fwd Header Length,0.9678352765165701
+Total Fwd Packets,Fwd Header Length.1,0.9678352765165701
+Fwd Header Length,Subflow Fwd Packets,0.9678352765165701
+Bwd Packet Length Max,Avg Bwd Segment Size,0.961535698188795
+Bwd Packet Length Max,Bwd Packet Length Mean,0.961535698188795
+Bwd IAT Std,Bwd IAT Max,0.9580940758785362
+Total Backward Packets,Subflow Fwd Packets,0.9569489250037954
+Total Fwd Packets,Total Backward Packets,0.9569489250037954
+Total Fwd Packets,Subflow Bwd Packets,0.9569489250037954
+Subflow Fwd Packets,Subflow Bwd Packets,0.9569489250037954
+Fwd Header Length,Bwd Header Length,0.956118038963968
+Bwd Header Length,Fwd Header Length.1,0.956118038963968
+Bwd Packet Length Std,Avg Bwd Segment Size,0.9558335604432296
+Bwd Packet Length Mean,Bwd Packet Length Std,0.9558335604432296
+Total Backward Packets,Fwd Header Length,0.9537427060565281
+Total Backward Packets,Fwd Header Length.1,0.9537427060565281
+Fwd Header Length.1,Subflow Bwd Packets,0.9537427060565281
+Fwd Header Length,Subflow Bwd Packets,0.9537427060565281
+Idle Mean,Idle Max,0.9529264811510011
+Total Length of Bwd Packets,Bwd Header Length,0.9519266505133144
+Bwd Header Length,Subflow Bwd Bytes,0.9519266505133144
+Packet Length Mean,Packet Length Std,0.9509579307663181
+Packet Length Std,Average Packet Size,0.9504916981243604
+Flow IAT Max,Idle Mean,0.9504335191030974
