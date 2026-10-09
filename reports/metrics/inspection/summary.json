@@ -1,0 +1,103 @@
+{
+  "raw_dir": "data/raw",
+  "file_count": 8,
+  "total_rows": 2830743,
+  "column_count": 79,
+  "feature_count": 78,
+  "label_column": "Label",
+  "label_count": 15,
+  "encodings": {
+    "Friday-WorkingHours-Afternoon-DDos.pcap_ISCX.csv": "utf-8",
+    "Friday-WorkingHours-Afternoon-PortScan.pcap_ISCX.csv": "utf-8",
+    "Friday-WorkingHours-Morning.pcap_ISCX.csv": "utf-8",
+    "Monday-WorkingHours.pcap_ISCX.csv": "utf-8",
+    "Thursday-WorkingHours-Afternoon-Infilteration.pcap_ISCX.csv": "utf-8",
+    "Thursday-WorkingHours-Morning-WebAttacks.pcap_ISCX.csv": "utf-8",
+    "Tuesday-WorkingHours.pcap_ISCX.csv": "utf-8",
+    "Wednesday-workingHours.pcap_ISCX.csv": "utf-8"
+  },
+  "header_differences": {},
+  "unparsed_lines_total": 0,
+  "all_empty_rows_total": 0,
+  "columns_with_nan": [
+    "Flow Bytes/s"
+  ],
+  "columns_with_inf": [
+    "Flow Bytes/s",
+    "Flow Packets/s"
+  ],
+  "columns_with_unparseable": [],
+  "rows_with_nonfinite_note": "per-column counts are in column_stats.csv; a row may be counted in several columns",
+  "constant_columns": [
+    "Bwd PSH Flags",
+    "Bwd URG Flags",
+    "Fwd Avg Bytes/Bulk",
+    "Fwd Avg Packets/Bulk",
+    "Fwd Avg Bulk Rate",
+    "Bwd Avg Bytes/Bulk",
+    "Bwd Avg Packets/Bulk",
+    "Bwd Avg Bulk Rate"
+  ],
+  "identical_column_groups": [
+    [
+      "Total Fwd Packets",
+      "Subflow Fwd Packets"
+    ],
+    [
+      "Total Backward Packets",
+      "Subflow Bwd Packets"
+    ],
+    [
+      "Fwd PSH Flags",
+      "SYN Flag Count"
+    ],
+    [
+      "Bwd PSH Flags",
+      "Bwd URG Flags",
+      "Fwd Avg Bytes/Bulk",
+      "Fwd Avg Packets/Bulk",
+      "Fwd Avg Bulk Rate",
+      "Bwd Avg Bytes/Bulk",
+      "Bwd Avg Packets/Bulk",
+      "Bwd Avg Bulk Rate"
+    ],
+    [
+      "Fwd URG Flags",
+      "CWE Flag Count"
+    ],
+    [
+      "Fwd Header Length",
+      "Fwd Header Length.1"
+    ]
+  ],
+  "identifier_columns": {
+    "Destination Port": "port"
+  },
+  "non_ascii_labels": [
+    "Web Attack � Brute Force",
+    "Web Attack � XSS",
+    "Web Attack � Sql Injection"
+  ],
+  "duplicates": {
+    "rows": 2830743,
+    "unique_rows": 2522362,
+    "redundant_copies": 308381,
+    "redundant_copies_within_files": 256479,
+    "redundant_copies_across_files": 51902,
+    "unique_feature_vectors": 2521664,
+    "conflicting_feature_vectors": 698,
+    "rows_in_conflicting_vectors": 7020,
+    "conflicting_label_sets": {
+      "BENIGN | PortScan": 564,
+      "BENIGN | DoS Hulk": 130,
+      "BENIGN | DDoS": 3,
+      "BENIGN | DoS slowloris": 1
+    }
+  },
+  "settings": {
+    "chunksize": 200000,
+    "per_label": 5000,
+    "uniform_size": 100000,
+    "seed": 42
+  }
+}
