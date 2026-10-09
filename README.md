@@ -178,6 +178,10 @@ python -m src.data.preprocess            # -> data/processed/flows.parquet (+ sp
 python -m src.features.feature_pipeline  # -> models/preprocessor_tree.joblib, preprocessor_scaled.joblib
 ```
 
+To follow the steps interactively, open `notebooks/03_preprocessing.ipynb`.
+It runs each step on one day file and shows its effect, calling the same
+functions as the scripts.
+
 The work is split between two places on purpose:
 
 * **Fixed, data-independent steps** run once in `src/data/preprocess.py`:
