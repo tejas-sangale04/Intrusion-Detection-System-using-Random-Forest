@@ -18,7 +18,7 @@ security or guaranteed detection of unseen ("zero-day") attacks.
 | 5 | Isolation Forest and hybrid decision policy | **Done** (see below) |
 | 6 | SHAP explanations | **Done** (see below) |
 | 7 | FastAPI backend | **Done** (offline mode; see below) |
-| 8 | React dashboard | Planned |
+| 8 | React dashboard | **Done** (offline demo mode; see below) |
 | 9 | Dataset replay, then optional live flows in an authorised lab | Planned |
 | 10 | Optional reinforcement-learning response simulation | Planned |
 
@@ -43,11 +43,12 @@ src/anomaly/isolation_forest.py  benign-only anomaly detector, hybrid policy
 src/explainability/shap_explainer.py  per-flow and global SHAP explanations
 backend/            FastAPI service: main.py, schemas.py, services/ (detector, store, reports)
 examples/           request bodies built from real test-split flows, requests.http
+frontend/           React + TypeScript dashboard (Vite)
 reports/            dataset_inspection.md, figures/inspection/, metrics/inspection/
 tests/              pytest suite using small hand-built CSVs
 ```
 
-Folders for later phases (`frontend` ...) are created when those phases are built, so the tree only shows what exists.
+Folders for later phases are created when those phases are built, so the tree only shows what exists.
 
 ## Setup (Windows, VS Code)
 
@@ -543,6 +544,74 @@ they run without the dataset. They cover the hybrid policy, every rejection
 path, batch limits, alert ordering and filtering, store eviction, the alert
 log, explanations, missing report files, and refusing to start without
 models.
+
+## Phase 8: React dashboard
+
+Needs Node.js 20 or newer (on Windows, the LTS installer from nodejs.org).
+Start the API first (Phase 7), then in a second terminal:
+
+```powershell
+cd frontend
+npm install
+npm run dev        # opens on http://localhost:5173
+npm test           # 12 component and parsing tests
+npm run build      # type-check and production build into frontend/dist
+```
+
+The dashboard calls the API at `http://127.0.0.1:8000`; set `VITE_API_URL`
+in `frontend/.env.local` to use another address. It has three tabs:
+
+* **Overview.** Decision counts for the running server; the saved
+  random-split results for the Random Forest; recall on attack families left
+  out of training (Random Forest alone vs hybrid, with a 1% / 5% threshold
+  switch and a table view); the top 10 SHAP features; and the decision rules
+  with the live thresholds. Every saved number shows the file it came from.
+* **Score flows.** Score the six sample flows, or upload a CSV with
+  CIC-IDS2017 column names (a slice of a dataset file works as-is). Results
+  show the decision, both scores, imputed features, and the file's own
+  `Label` for comparison. The label is never sent to the model.
+* **Alerts.** Recent `known_attack` and `anomaly` decisions from the API,
+  newest first, refreshed every 5 s while the tab is open. **Explain** on any
+  row (here or in Score flows) opens the SHAP breakdown: diverging bars per
+  feature, the plain-language summary, and what the explanation does and
+  does not cover.
+
+![Dashboard overview](reports/figures/dashboard/overview.png)
+
+![Explanation of one alert](reports/figures/dashboard/explanation.png)
+
+A banner on every page says the dashboard is in **offline demo mode**: flows
+come from recorded data the user submits, nothing is captured or blocked,
+and decisions are for analyst review.
+
+### Design decisions in Phase 8
+
+| Decision | Why | Trade-off |
+|---|---|---|
+| Vite + React + TypeScript, no UI or chart library | two runtime dependencies (React, ReactDOM); charts are simple bars, written as HTML so they reflow on small screens | hand-written charts have fewer features than a chart library |
+| Types in `src/types.ts` mirror `backend/schemas.py` | the compiler catches a field the dashboard reads but the API does not send | the two must be kept in step by hand |
+| CSV parsed in the browser, sent in 1,000-flow batches | the file never needs to be uploaded to disk on the server; batch size matches the API limit; per-row errors are renumbered to the row in the whole file | files over 20,000 rows must be split |
+| Repeated header names get `.1`, `.2` suffixes, as in the Python pipeline | CIC-IDS2017 has `Fwd Header Length` twice; without this the second copy would overwrite the first and the API would reject the row | none found |
+| `Infinity`, `NaN` and empty cells sent as `null` | JSON cannot carry Infinity; the API imputes `null` exactly as it treats Infinity and lists the feature as imputed | the response cannot distinguish "was Infinity" from "was empty" |
+| Unparseable text is sent unchanged | the API rejects it with the feature name, instead of the browser guessing a number | none |
+| Decisions shown as icon + text + colour; chart colours checked for colour-blind separation in light and dark mode | colour is never the only signal | none |
+| Held-out-family bars show the number of test flows per family | Heartbleed has 1 test flow and Infiltration 5, so their 100% recall says almost nothing | busier labels |
+
+### Phase 8 results (checked in a browser against the trained models)
+
+I drove the dashboard with headless Chromium (Playwright), with the API
+serving the trained models:
+
+* The six sample flows scored as in Phase 7.
+* A 300-row slice of `Friday-WorkingHours-Afternoon-DDos.pcap_ISCX.csv`
+  (the first 150 rows, all BENIGN, and 150 DDoS rows from further in), uploaded
+  unchanged: 151 `benign`, 149 `known_attack`, 0 `anomaly`. These rows were
+  not de-duplicated or split, so some were in the training data; this checks
+  the upload path, not detection quality.
+* A CSV missing 77 columns was rejected, with the missing names shown.
+* At 390 px wide (phone), the page has no horizontal scrolling, in light and
+  dark mode. The only browser console error was the deliberate 422 from the
+  bad CSV.
 
 ## Limitations (to be expanded with real findings)
 
