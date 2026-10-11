@@ -17,7 +17,7 @@ security or guaranteed detection of unseen ("zero-day") attacks.
 | 4 | Leakage control and held-out attack-family evaluation | **Done** (see below) |
 | 5 | Isolation Forest and hybrid decision policy | **Done** (see below) |
 | 6 | SHAP explanations | **Done** (see below) |
-| 7 | FastAPI backend | Planned |
+| 7 | FastAPI backend | **Done** (offline mode; see below) |
 | 8 | React dashboard | Planned |
 | 9 | Dataset replay, then optional live flows in an authorised lab | Planned |
 | 10 | Optional reinforcement-learning response simulation | Planned |
@@ -41,12 +41,13 @@ src/models/train.py, evaluate.py, predict.py  baselines, metrics, scoring CSVs
 src/models/generalization.py  held-out family / day experiments, port ablation
 src/anomaly/isolation_forest.py  benign-only anomaly detector, hybrid policy
 src/explainability/shap_explainer.py  per-flow and global SHAP explanations
+backend/            FastAPI service: main.py, schemas.py, services/ (detector, store, reports)
+examples/           request bodies built from real test-split flows, requests.http
 reports/            dataset_inspection.md, figures/inspection/, metrics/inspection/
 tests/              pytest suite using small hand-built CSVs
 ```
 
-Folders for later phases (`src/features`, `src/models`, `backend`, `frontend`
-...) are created when those phases are built, so the tree only shows what exists.
+Folders for later phases (`frontend` ...) are created when those phases are built, so the tree only shows what exists.
 
 ## Setup (Windows, VS Code)
 
@@ -403,8 +404,8 @@ python -m src.explainability.shap_explainer   # about 4 minutes
 
 `FlowExplainer` wraps the saved Random Forest pipeline with SHAP's exact
 `TreeExplainer`. For one flow it returns the attack probability, each model
-feature's contribution, and a plain-language summary. The API (Phase 7) will
-use it to explain individual alerts.
+feature's contribution, and a plain-language summary. The API (Phase 7)
+uses it to explain individual alerts.
 
 **Reading the numbers.** Contributions are in units of attack probability.
 The reference value is 0.169 (the forest's average output on its training
@@ -456,6 +457,93 @@ What the explanations reveal:
   model relied on that value. It does not mean the value caused or proves
   an attack, and correlated features can split credit arbitrarily.
 
+## Phase 7: FastAPI backend
+
+```powershell
+# from the repository root, after Phases 3 and 5 have saved models/
+uvicorn backend.main:app --port 8000
+# then open http://127.0.0.1:8000/docs for interactive documentation
+```
+
+The service loads the Random Forest pipeline (`models/binary_random_forest.joblib`)
+and the Isolation Forest bundle (`models/isolation_forest.joblib`) once, at
+startup, and applies the Phase 5 hybrid policy to every flow it receives. If
+either file is missing it refuses to start and names the command that creates
+it. It runs in **offline mode**: a client sends flow features (for example,
+CSV rows), and the decision is returned and logged. Nothing is captured,
+blocked or changed on the network.
+
+| Endpoint | What it returns |
+|---|---|
+| `GET /health` | service status, version, mode |
+| `GET /model/info` | model types, thresholds, the hybrid rules, the 78 required input features, the 62 the models use |
+| `POST /predict` | one flow: `decision` (`benign` / `anomaly` / `known_attack`), attack probability, anomaly score, both thresholds, imputed features, an explanation link |
+| `POST /predict/batch` | up to `IDS_MAX_BATCH` (1,000) flows, plus decision counts |
+| `GET /alerts` | recent non-benign decisions, newest first; filter with `?decision=anomaly` |
+| `GET /explanations/{prediction_id}` | SHAP explanation of the Random Forest for that flow |
+| `GET /metrics` | the saved offline evaluation from Phases 3 to 6, with the file each value came from, plus counters for this server process |
+
+Try it with the example bodies (real test-split flows written by
+`python -m backend.examples`; each keeps its `Label`, which the API ignores):
+
+```powershell
+# PowerShell
+$body = Get-Content examples\flow_ddos.json -Raw
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/predict -ContentType application/json -Body $body
+# curl (Git Bash, macOS, Linux)
+curl -s -X POST localhost:8000/predict -H "Content-Type: application/json" -d @examples/flow_ddos.json
+```
+
+`examples/requests.http` holds the same requests for the VS Code REST Client
+extension.
+
+### Design decisions in Phase 7
+
+| Decision | Why | Trade-off |
+|---|---|---|
+| Serve the Random Forest, not the Decision Tree `binary_best` | Phases 5 and 6 measured and explained the forest; its test F1 is within 0.001 of the tree's; its probabilities are graded, not 0/1 | 10 MB model, slower per request |
+| Require all 78 CSV feature names, including `Destination Port` | a CSV row can be sent unchanged, and the contract is the one the pipeline's schema guard already enforces | the port is sent and then dropped |
+| Reject unknown feature names; ignore only `Label` | a typo such as `Flow Durration` would otherwise leave the real feature missing and silently imputed | callers must strip extra columns themselves |
+| Numbers or `null` only; strings and booleans rejected | an exporter sending `"12"` has a bug worth seeing | stricter than pandas' CSV parsing |
+| `null` and `Infinity` accepted, imputed with the training median, and listed in `missing_values` | both occur in CIC-IDS2017 (zero-duration flows), and the pipeline already handles them this way | a flow with many missing values gets a less reliable score; the response says so |
+| Validation errors return 422 without echoing submitted values | malformed input is reported precisely, and traffic data does not leak into error messages or logs | debugging needs the client's own copy of the request |
+| Predictions kept in a bounded in-memory store (`IDS_STORE_SIZE`, default 10,000); alerts optionally appended to `IDS_ALERT_LOG` | no database to install for a demo; memory cannot grow without limit | history is lost on restart unless the alert log is set |
+| SHAP computed when an explanation is requested, then cached | about 0.4 s per flow is fine for an alert an analyst opens, too slow for every flow in a batch | the first request for an explanation is slower |
+| `/metrics` returns the saved evaluation files, never live accuracy | submitted flows carry no ground truth, so the server cannot measure accuracy; it reports counts of decisions instead | the offline numbers describe the test split, not the traffic being scored |
+| JSON-lines logs with method, path, status, latency and decision counts; no feature values | machine-readable, and flow data stays out of logs | logs alone cannot reproduce a decision |
+
+Configuration is by environment variable (`backend/config.py`):
+`IDS_MODELS_DIR`, `IDS_REPORTS_DIR`, `IDS_ALERT_LOG`, `IDS_MAX_BATCH`,
+`IDS_STORE_SIZE` and `IDS_CORS_ORIGINS` (default: the Vite dev server on port
+5173, for the Phase 8 dashboard).
+
+### Phase 7 results (smoke test against the trained models)
+
+Measured on the 4-core Linux container used for this project, with the
+server running locally:
+
+* Startup (both models loaded): 0.9 s.
+* The six example flows (BENIGN, Bot, DDoS, DoS Hulk, FTP-Patator,
+  PortScan) all received the decision matching their label. The Bot flow
+  scored exactly 0.500, the threshold, so it was flagged by the narrowest
+  possible margin.
+* `/predict` for one flow: about 70 ms per request. I have not profiled
+  this; the likely cost is the forest dispatching 100 trees to a thread pool
+  for a single row.
+* `/predict/batch` with 1,000 random test flows: 0.33 s including HTTP
+  transfer. All 183 attacks were
+  `known_attack`; of 817 BENIGN flows, 807 were `benign` and 10 were
+  `anomaly` (1.2%, close to the 1% validation target). These flows come from
+  the same test split as Phase 3, so this checks the plumbing, not
+  generalisation.
+* `/explanations/{id}`: 375 to 455 ms for the first request per flow.
+
+The API tests (`tests/test_api.py`) train tiny models on synthetic flows, so
+they run without the dataset. They cover the hybrid policy, every rejection
+path, batch limits, alert ordering and filtering, store eviction, the alert
+log, explanations, missing report files, and refusing to start without
+models.
+
 ## Limitations (to be expanded with real findings)
 
 * CIC-IDS2017 was recorded in 2017 in a lab network with scripted attacks; it
@@ -463,6 +551,11 @@ What the explanations reveal:
   Results on it do not imply performance on modern production networks.
 * Each attack type was recorded on a single day (confirmed in Phase 1), so
   attack-family and day effects are confounded. Phase 4 examines this.
+* The API explains the Random Forest only. When a flow is flagged as
+  `anomaly`, the Isolation Forest's score is not broken down by feature; the
+  explanation then shows why the classifier did *not* recognise it.
+* The MachineLearningCSV files contain no IP addresses or timestamps, so
+  alerts carry no host or location information.
 
 ## Ethical use
 

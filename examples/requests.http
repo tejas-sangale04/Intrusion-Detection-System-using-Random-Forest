@@ -1,0 +1,29 @@
+### Requests for the VS Code "REST Client" extension. Start the API first:
+###   uvicorn backend.main:app --port 8000
+@api = http://127.0.0.1:8000
+
+GET {{api}}/health
+
+###
+GET {{api}}/model/info
+
+### One flow (a real DDoS flow from the test split)
+POST {{api}}/predict
+Content-Type: application/json
+
+< ./flow_ddos.json
+
+### Six flows at once
+POST {{api}}/predict/batch
+Content-Type: application/json
+
+< ./batch.json
+
+### Recent alerts, newest first
+GET {{api}}/alerts?limit=20
+
+### Paste a prediction_id from a /predict response
+GET {{api}}/explanations/PASTE_PREDICTION_ID?k=5
+
+###
+GET {{api}}/metrics
