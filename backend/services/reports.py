@@ -1,5 +1,8 @@
 """Reads the offline evaluation saved by Phases 3 to 6, for ``/metrics``.
 
+Paths in the response use forward slashes on every OS, so clients and tests
+see the same strings on Windows and Linux.
+
 The API never computes or estimates these numbers: it returns what the
 training scripts wrote, plus the path each value came from. A file that does
 not exist yet is reported as missing instead of being filled with a default.
@@ -40,10 +43,10 @@ def offline_metrics(reports_dir: Path) -> dict:
     for key, rel in SOURCES.items():
         path = Path(reports_dir) / rel
         if path.exists():
-            out[key] = {"source": str(Path(reports_dir) / rel), "data": _read(path)}
+            out[key] = {"source": path.as_posix(), "data": _read(path)}
         else:
             out[key] = None
-            missing.append(str(path))
+            missing.append(path.as_posix())
     if out["classifier_baselines"] is not None:
         # Only the classifier the API serves; the full comparison stays in the file.
         data = out["classifier_baselines"]["data"]
