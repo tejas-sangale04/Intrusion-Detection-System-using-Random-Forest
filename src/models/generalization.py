@@ -104,7 +104,8 @@ def summarise(test: pd.DataFrame, score: np.ndarray, held_out: pd.Series) -> dic
     return out
 
 
-def leave_one_family_out(df: pd.DataFrame, feats: list[str], model_name: str, rf_trees: int) -> list[dict]:
+def leave_one_family_out(df: pd.DataFrame, feats: list[str], model_name: str, rf_trees: int,
+                         scores: dict[str, np.ndarray] | None = None) -> list[dict]:
     train_all, test = df[df["split"] == "train"], df[df["split"] == "test"]
     families = [f for f in df["family"].unique() if f != "BENIGN"]
     rows = []
@@ -112,6 +113,8 @@ def leave_one_family_out(df: pd.DataFrame, feats: list[str], model_name: str, rf
         start = time.perf_counter()
         train = train_all[train_all["family"] != fam]
         score = fit_and_score(model_name, train, test, feats, rf_trees)
+        if scores is not None:
+            scores[f"{model_name}|{fam}"] = score
         res = summarise(test, score, test["family"] == fam)
         res.update({"experiment": "leave_one_family_out", "model": model_name, "held_out": fam,
                     "train_rows": int(len(train)), "seconds": round(time.perf_counter() - start, 1)})
@@ -121,12 +124,15 @@ def leave_one_family_out(df: pd.DataFrame, feats: list[str], model_name: str, rf
     return rows
 
 
-def held_out_day(df: pd.DataFrame, feats: list[str], model_name: str, rf_trees: int) -> dict:
+def held_out_day(df: pd.DataFrame, feats: list[str], model_name: str, rf_trees: int,
+                 scores: dict[str, np.ndarray] | None = None) -> dict:
     """Train on every non-Friday row (all splits), test on every Friday row."""
     friday = df["source_file"].str.startswith(FRIDAY_PREFIX)
     train, test = df[~friday], df[friday]
     unseen_labels = set(test["label"]) - set(train["label"])
     score = fit_and_score(model_name, train, test, feats, rf_trees)
+    if scores is not None:
+        scores[model_name] = score
     res = summarise(test, score, test["label"].isin(unseen_labels) & (test["is_attack"] == 1))
     res.update({"experiment": "held_out_day", "model": model_name, "held_out": "Friday (all three files)",
                 "unseen_labels": sorted(unseen_labels), "train_rows": int(len(train))})
@@ -176,6 +182,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--data", default="data/processed/flows.parquet")
     parser.add_argument("--metrics-dir", default="reports/metrics/generalization")
     parser.add_argument("--figures-dir", default="reports/figures/generalization")
+    parser.add_argument("--scores-dir", default="data/processed")
     parser.add_argument("--models", nargs="*", default=["random_forest", "hist_gradient_boosting"])
     parser.add_argument("--rf-trees", type=int, default=100)
     parser.add_argument("--skip", nargs="*", default=[], choices=["lofo", "day", "port"])
@@ -190,13 +197,22 @@ def main(argv: list[str] | None = None) -> None:
     results: dict = {}
 
     if "lofo" not in args.skip:
-        lofo = [r for m in args.models for r in leave_one_family_out(df, feats, m, args.rf_trees)]
+        lofo_scores: dict[str, np.ndarray] = {}
+        lofo = [r for m in args.models for r in leave_one_family_out(df, feats, m, args.rf_trees, lofo_scores)]
+        # Saved so Phase 5 can combine these supervised scores with the anomaly
+        # detector on exactly the same test rows (row order = test split order).
+        test_meta = df.loc[df["split"] == "test", ["label", "family", "is_attack"]].reset_index(drop=True)
+        test_meta.assign(**lofo_scores).to_parquet(Path(args.scores_dir) / "lofo_test_scores.parquet", index=False)
         results["leave_one_family_out"] = lofo
         table = pd.DataFrame([{k: v for k, v in r.items() if not isinstance(v, dict)} for r in lofo])
         table.to_csv(metrics_dir / "leave_one_family_out.csv", index=False)
         plot_lofo(table, figures_dir / "leave_one_family_out.png")
     if "day" not in args.skip:
-        results["held_out_day"] = [held_out_day(df, feats, m, args.rf_trees) for m in args.models]
+        day_scores: dict[str, np.ndarray] = {}
+        results["held_out_day"] = [held_out_day(df, feats, m, args.rf_trees, day_scores) for m in args.models]
+        friday = df["source_file"].str.startswith(FRIDAY_PREFIX)
+        df.loc[friday, ["label", "family", "is_attack"]].reset_index(drop=True).assign(**day_scores).to_parquet(
+            Path(args.scores_dir) / "friday_test_scores.parquet", index=False)
     if "port" not in args.skip:
         results["port_ablation"] = port_ablation(df, feats, args.rf_trees)
 
