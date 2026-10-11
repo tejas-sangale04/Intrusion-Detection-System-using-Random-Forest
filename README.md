@@ -19,7 +19,7 @@ security or guaranteed detection of unseen ("zero-day") attacks.
 | 6 | SHAP explanations | **Done** (see below) |
 | 7 | FastAPI backend | **Done** (offline mode; see below) |
 | 8 | React dashboard | **Done** (offline demo mode; see below) |
-| 9 | Dataset replay, then optional live flows in an authorised lab | Planned |
+| 9 | Dataset replay | **Done** (simulated feed; see below). Optional live flows in an authorised lab: not built |
 | 10 | Optional reinforcement-learning response simulation | Planned |
 
 Every dataset number or model result in this README was produced by the code
@@ -44,6 +44,7 @@ src/explainability/shap_explainer.py  per-flow and global SHAP explanations
 backend/            FastAPI service: main.py, schemas.py, services/ (detector, store, reports)
 examples/           request bodies built from real test-split flows, requests.http
 frontend/           React + TypeScript dashboard (Vite)
+src/replay/replay.py  replays recorded flows through the API at a set rate
 reports/            dataset_inspection.md, figures/inspection/, metrics/inspection/
 tests/              pytest suite using small hand-built CSVs
 ```
@@ -613,6 +614,65 @@ serving the trained models:
   dark mode. The only browser console error was the deliberate 422 from the
   bad CSV.
 
+## Phase 9: dataset replay
+
+With the API running (and the dashboard open, to watch):
+
+```powershell
+python -m src.replay.replay                                   # all held-out test flows, 200 flows/s
+python -m src.replay.replay --files Friday --rate 50 --limit 5000
+python -m src.replay.replay --rate 0 --batch 1000 --report reports\metrics\replay\test_split_full.json
+python -m src.replay.replay --csv data\raw\MachineLearningCSV.zip --member MachineLearningCVE/Friday-WorkingHours-Afternoon-DDos.pcap_ISCX.csv
+```
+
+Replay sends recorded flows to `/predict/batch` in file order, paced to a
+fixed number of flows per second (`--rate`, `0` for as fast as the API
+answers), in batches of `--batch`. Every request is tagged
+`replay:<name>`. While a replay is sending, the dashboard shows a blue
+**Replay in progress** banner with its counts, and the Overview lists flows
+per source. Stop it with Ctrl+C; it still prints its summary.
+
+![Dashboard during a replay](reports/figures/dashboard/replay.png)
+
+### Design decisions in Phase 9
+
+| Decision | Why | Trade-off |
+|---|---|---|
+| Replay is a client of the API, not a server feature | the same path a live flow exporter would use; the server stays stateless about replays and cannot be told to replay anything | needs a second terminal |
+| Default input is the held-out **test split** | those flows trained or tuned neither model, so the running scores are fair | the de-duplicated split, not the raw recording |
+| `--csv` replays a raw file through the Phase 1 reader (encoding detection, header clean-up, label repair) | lets you replay exactly what was recorded | most raw rows were in the training data, so the replayer warns that its scores are not a detection estimate |
+| Fixed rate, not original timing | the MachineLearningCSV files have no timestamps, so the original arrival times cannot be reproduced | the pace is synthetic, and the README and banner say so |
+| Labels kept by the replayer, never sent | the API must decide without ground truth, as it would on real traffic; the replayer still compares decisions with labels and reports recall, false-positive rate and precision | none |
+| NaN and Infinity sent as `null` | standard JSON; the API imputes both the same way | none |
+| The API's per-source table holds at most 50 tags | the tag is client-supplied text, so the table must not grow without limit | later tags are grouped as "(other sources)" |
+
+### Phase 9 results
+
+**Full test split through the running API** (`reports/metrics/replay/test_split_full.json`):
+all 378,355 held-out flows, `--rate 0 --batch 1000`, took 155 s (about
+2,450 flows/s including HTTP and JSON on 4 cores). The end-to-end numbers
+match Phase 5's offline hybrid evaluation at the 1% threshold exactly:
+
+| | Recall | False-positive rate | Precision | True / false positives |
+|---|---|---|---|---|
+| `known_attack` only | 99.63% | 0.09% | 99.56% | 63,645 / 281 |
+| any alert (`known_attack` or `anomaly`) | 99.63% | 1.08% | 94.95% | 63,647 / 3,385 |
+
+That agreement is the point of the run: the API, JSON conversion, batching
+and hybrid rules reproduce the offline pipeline flow for flow. It is not
+new evidence of detection quality. This is the random test split, whose
+attack types all appeared in training.
+
+**Paced replay with the dashboard open** (`reports/metrics/replay/friday_paced.json`):
+the first 6,000 Friday test flows at 200 flows/s took 29.8 s (201 flows/s
+achieved). They were 3,462 BENIGN and 2,538 DDoS. Every DDoS flow was
+`known_attack`. But 93 BENIGN flows were `anomaly` and 7 were
+`known_attack`: a 2.9% alert rate on benign traffic, against the 1% the
+anomaly threshold was set for. The threshold was calibrated on validation
+flows from all five days. On this one afternoon's benign traffic it fires
+about three times as often. A deployed threshold would need calibrating on
+the network it watches, and a replay is a cheap way to see that.
+
 ## Limitations (to be expanded with real findings)
 
 * CIC-IDS2017 was recorded in 2017 in a lab network with scripted attacks; it
@@ -620,6 +680,8 @@ serving the trained models:
   Results on it do not imply performance on modern production networks.
 * Each attack type was recorded on a single day (confirmed in Phase 1), so
   attack-family and day effects are confounded. Phase 4 examines this.
+* Replay timing is synthetic (fixed rate), because the flow files carry no
+  timestamps. Live capture in an authorised lab is not built.
 * The API explains the Random Forest only. When a flow is flagged as
   `anomaly`, the Isolation Forest's score is not broken down by feature; the
   explanation then shows why the classifier did *not* recognise it.

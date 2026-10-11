@@ -56,7 +56,8 @@ from backend.services.store import PredictionRecord, PredictionStore
 
 logger = logging.getLogger("backend")
 
-MODE = "offline"  # flows are submitted by a client; no live capture in this phase
+MODE = "offline"
+MAX_SOURCES = 50  # flows are submitted by a client; no live capture in this phase
 
 
 class Runtime:
@@ -67,13 +68,22 @@ class Runtime:
         self.requests = 0
         self.flows_scored = 0
         self.scoring_seconds = 0.0
+        self.sources: dict[str, dict] = {}  # per source tag: flows and when last seen (replay shows up here)
         self.lock = threading.Lock()  # endpoints run in a thread pool
 
-    def record(self, flows: int, seconds: float) -> None:
+    def record(self, flows: int, seconds: float, source: str, decisions: dict[str, int]) -> None:
+        now = datetime.now(timezone.utc).isoformat(timespec="milliseconds")
         with self.lock:
             self.requests += 1
             self.flows_scored += flows
             self.scoring_seconds += seconds
+            if source not in self.sources and len(self.sources) >= MAX_SOURCES:
+                source = "(other sources)"  # source is client-supplied text; keep the table bounded
+            entry = self.sources.setdefault(source, {"flows": 0, **dict.fromkeys(decisions, 0)})
+            entry["flows"] += flows
+            for d, n in decisions.items():
+                entry[d] += n
+            entry["last_seen"] = now
 
     def as_dict(self, store: PredictionStore) -> dict:
         return {
@@ -85,6 +95,7 @@ class Runtime:
             if self.flows_scored else None,
             "predictions_in_memory": len(store),
             "predictions_evicted": store.evicted,
+            "sources": {k: dict(v) for k, v in self.sources.items()},
             "note": "Counts of decisions made by this server since it started. They are not accuracy figures: "
                     "submitted flows carry no ground truth.",
         }
@@ -145,7 +156,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         frame, missing = detector.to_frame(flows)
         start = time.perf_counter()
         scores = detector.score(frame)
-        runtime.record(len(frame), time.perf_counter() - start)
+        seconds = time.perf_counter() - start
+        runtime.record(len(frame), seconds, source,
+                       {d: int((scores.decision == d).sum()) for d in ("benign", "anomaly", "known_attack")})
         now = datetime.now(timezone.utc).isoformat(timespec="milliseconds")
         out = []
         for i in range(len(frame)):

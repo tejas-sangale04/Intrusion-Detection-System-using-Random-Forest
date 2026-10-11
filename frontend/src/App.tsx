@@ -4,9 +4,11 @@ import { AlertsPanel } from "./components/AlertsPanel";
 import { ExplanationPanel } from "./components/ExplanationPanel";
 import { Overview } from "./components/Overview";
 import { ScorePanel } from "./components/ScorePanel";
+import { activeReplays } from "./replay";
 import type { Health, Metrics, ModelInfo } from "./types";
 
 type Tab = "overview" | "score" | "alerts";
+const METRICS_REFRESH_MS = 5000;
 const TABS: { id: Tab; label: string }[] = [
   { id: "overview", label: "Overview" },
   { id: "score", label: "Score flows" },
@@ -28,6 +30,14 @@ export default function App() {
       .catch((e: ApiError) => setError(e.message));
   }, []);
   useEffect(refresh, [refresh]);
+  // Poll so the overview counts and the replay banner follow a running replay.
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      api.metrics().then(setMetrics).catch(() => {});
+    }, METRICS_REFRESH_MS);
+    return () => window.clearInterval(id);
+  }, []);
+  const replays = activeReplays(metrics?.runtime);
 
   const onScored = () => { refresh(); setRefreshKey((k) => k + 1); };
 
@@ -44,6 +54,13 @@ export default function App() {
         captured from a network, and no host is blocked. Decisions are model outputs for analyst review, not proof
         of an attack.
       </div>
+      {replays.map((r) => (
+        <div key={r.name} className="banner replay" role="status">
+          <strong>Replay in progress: {r.name}.</strong> {r.flows.toLocaleString()} recorded flows sent so far
+          ({r.known_attack.toLocaleString()} known attack, {r.anomaly.toLocaleString()} anomaly). This is a
+          simulated feed from the dataset at a fixed rate, not live traffic.
+        </div>
+      ))}
       {error && (
         <p className="error" role="alert">
           {error} Start it with <code>uvicorn backend.main:app --port 8000</code> from the repository root.{" "}
