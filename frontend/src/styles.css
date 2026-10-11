@@ -76,6 +76,7 @@ header.top h1 { font-size: 20px; margin: 0; }
   background: var(--banner); border: 1px solid var(--border); border-radius: 8px;
   padding: 8px 12px; margin: 12px 0; color: var(--text-primary);
 }
+.banner.replay { background: color-mix(in srgb, var(--series-1) 14%, var(--surface-1)); }
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin: 12px 0 16px; overflow-x: auto; }
 .tabs button { border: none; border-bottom: 2px solid transparent; border-radius: 0; background: none; padding: 8px 12px; }
 .tabs button[aria-selected="true"] { border-bottom-color: var(--text-primary); font-weight: 600; }

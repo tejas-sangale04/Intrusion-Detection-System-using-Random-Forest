@@ -25,6 +25,25 @@ export function Overview({ metrics, info }: { metrics: Metrics | null; info: Mod
         </div>
       </section>
 
+      {Object.keys(rt.sources).length > 0 && (
+        <section className="card">
+          <h2>Where flows came from</h2>
+          <p className="sub">Each request is tagged with a source. Replays appear as <code>replay:…</code>.</p>
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Source</th><th className="num">Flows</th><th className="num">Benign</th><th className="num">Anomaly</th><th className="num">Known attack</th><th>Last seen (UTC)</th></tr></thead>
+              <tbody>
+                {Object.entries(rt.sources).map(([name, s]) => (
+                  <tr key={name}><td>{name}</td><td className="num">{s.flows.toLocaleString()}</td>
+                    <td className="num">{s.benign.toLocaleString()}</td><td className="num">{s.anomaly.toLocaleString()}</td>
+                    <td className="num">{s.known_attack.toLocaleString()}</td><td>{s.last_seen.replace("T", " ").slice(0, 19)}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
       <section className="card">
         <h2>Offline evaluation (saved by the training scripts)</h2>
         <p className="sub">

@@ -1,0 +1,38 @@
+{
+  "source": "replay:test-Friday",
+  "stopped": "limit reached",
+  "seconds": 29.84,
+  "achieved_rate": 201.1,
+  "requested_rate": 200.0,
+  "flows": 6000,
+  "benign_flows": 3462,
+  "attack_flows": 2538,
+  "known_attack_only": {
+    "recall": 1.0,
+    "false_positive_rate": 0.002021952628538417,
+    "precision": 0.9972495088408644,
+    "true_positives": 2538,
+    "false_positives": 7
+  },
+  "any_alert": {
+    "recall": 1.0,
+    "false_positive_rate": 0.028885037550548817,
+    "precision": 0.9620924943138741,
+    "true_positives": 2538,
+    "false_positives": 100
+  },
+  "by_label": {
+    "BENIGN": {
+      "benign": 3362,
+      "anomaly": 93,
+      "known_attack": 7,
+      "flows": 3462
+    },
+    "DDoS": {
+      "benign": 0,
+      "anomaly": 0,
+      "known_attack": 2538,
+      "flows": 2538
+    }
+  }
+}

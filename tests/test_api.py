@@ -165,6 +165,10 @@ def test_metrics_report_files_and_runtime_counts(client: TestClient) -> None:
     assert any(p.endswith("baselines/results.json") for p in off["missing_files"])
     rt = m["runtime"]
     assert rt["flows_scored"] == 3 and rt["decision_counts"] == {"benign": 1, "anomaly": 1, "known_attack": 1}
+    client.post("/predict", json={"features": ATTACK, "source": "replay:test"})
+    sources = client.get("/metrics").json()["runtime"]["sources"]
+    assert sources["api"]["flows"] == 3 and sources["replay:test"]["known_attack"] == 1
+    assert sources["replay:test"]["last_seen"]
 
 
 def test_missing_models_stop_startup(tmp_path: Path) -> None:

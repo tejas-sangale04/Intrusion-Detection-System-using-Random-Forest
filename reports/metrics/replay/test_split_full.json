@@ -1,0 +1,116 @@
+{
+  "source": "replay:test",
+  "stopped": "finished",
+  "seconds": 154.67,
+  "achieved_rate": 2446.2,
+  "requested_rate": 0.0,
+  "flows": 378355,
+  "benign_flows": 314473,
+  "attack_flows": 63882,
+  "known_attack_only": {
+    "recall": 0.9962900347515732,
+    "false_positive_rate": 0.0008935584294995118,
+    "precision": 0.9956042924631605,
+    "true_positives": 63645,
+    "false_positives": 281
+  },
+  "any_alert": {
+    "recall": 0.9963213424751887,
+    "false_positive_rate": 0.010764040156070633,
+    "precision": 0.9495017305167681,
+    "true_positives": 63647,
+    "false_positives": 3385
+  },
+  "by_label": {
+    "BENIGN": {
+      "benign": 311088,
+      "anomaly": 3104,
+      "known_attack": 281,
+      "flows": 314473
+    },
+    "Bot": {
+      "benign": 65,
+      "anomaly": 0,
+      "known_attack": 228,
+      "flows": 293
+    },
+    "DDoS": {
+      "benign": 10,
+      "anomaly": 0,
+      "known_attack": 19193,
+      "flows": 19203
+    },
+    "DoS GoldenEye": {
+      "benign": 10,
+      "anomaly": 0,
+      "known_attack": 1533,
+      "flows": 1543
+    },
+    "DoS Hulk": {
+      "benign": 126,
+      "anomaly": 0,
+      "known_attack": 25802,
+      "flows": 25928
+    },
+    "DoS Slowhttptest": {
+      "benign": 4,
+      "anomaly": 1,
+      "known_attack": 779,
+      "flows": 784
+    },
+    "DoS slowloris": {
+      "benign": 2,
+      "anomaly": 0,
+      "known_attack": 806,
+      "flows": 808
+    },
+    "FTP-Patator": {
+      "benign": 2,
+      "anomaly": 0,
+      "known_attack": 888,
+      "flows": 890
+    },
+    "Heartbleed": {
+      "benign": 0,
+      "anomaly": 0,
+      "known_attack": 1,
+      "flows": 1
+    },
+    "Infiltration": {
+      "benign": 0,
+      "anomaly": 1,
+      "known_attack": 4,
+      "flows": 5
+    },
+    "PortScan": {
+      "benign": 2,
+      "anomaly": 0,
+      "known_attack": 13621,
+      "flows": 13623
+    },
+    "SSH-Patator": {
+      "benign": 5,
+      "anomaly": 0,
+      "known_attack": 478,
+      "flows": 483
+    },
+    "Web Attack - Brute Force": {
+      "benign": 3,
+      "anomaly": 0,
+      "known_attack": 217,
+      "flows": 220
+    },
+    "Web Attack - Sql Injection": {
+      "benign": 2,
+      "anomaly": 0,
+      "known_attack": 1,
+      "flows": 3
+    },
+    "Web Attack - XSS": {
+      "benign": 4,
+      "anomaly": 0,
+      "known_attack": 94,
+      "flows": 98
+    }
+  }
+}

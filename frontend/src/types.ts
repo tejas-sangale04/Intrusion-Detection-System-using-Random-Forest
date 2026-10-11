@@ -79,7 +79,16 @@ export interface Runtime {
   decision_counts: Record<Decision, number>;
   mean_scoring_ms_per_flow: number | null;
   predictions_in_memory: number;
+  sources: Record<string, SourceStats>;
   note: string;
+}
+
+export interface SourceStats {
+  flows: number;
+  benign: number;
+  anomaly: number;
+  known_attack: number;
+  last_seen: string;
 }
 
 export interface Sourced<T> {
