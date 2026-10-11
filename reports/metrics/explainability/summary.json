@@ -1,0 +1,24 @@
+{
+  "flows_explained": 649,
+  "label_counts": {
+    "BENIGN": 200,
+    "Web Attack - XSS": 40,
+    "Bot": 40,
+    "Web Attack - Brute Force": 40,
+    "DoS slowloris": 40,
+    "FTP-Patator": 40,
+    "DDoS": 40,
+    "DoS GoldenEye": 40,
+    "DoS Slowhttptest": 40,
+    "DoS Hulk": 40,
+    "SSH-Patator": 40,
+    "PortScan": 40,
+    "Infiltration": 5,
+    "Web Attack - Sql Injection": 3,
+    "Heartbleed": 1
+  },
+  "seconds": 226.0,
+  "seconds_per_flow": 0.3482,
+  "max_additivity_error": 1.0765482949537386e-10,
+  "base_value": 0.16882713081222644
+}
