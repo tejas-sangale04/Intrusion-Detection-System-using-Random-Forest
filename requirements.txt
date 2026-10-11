@@ -1,4 +1,4 @@
-# Phases 1-6. Later phases add their own lines.
+# Phases 1-7. Later phases add their own lines.
 # Ranges were tested with Python 3.13, pandas 3.0, numpy 2.5; the lower bounds
 # also cover Python 3.10-3.12 on Windows.
 pandas>=2.2,<4
@@ -10,3 +10,6 @@ joblib>=1.3            # persisting fitted pipelines
 shap>=0.45             # Phase 6 explanations
 pytest>=8
 jupyter>=1.0   # only needed to open the notebooks
+fastapi>=0.110         # Phase 7 API
+uvicorn>=0.29          # Phase 7: runs the API
+httpx>=0.27            # Phase 7: FastAPI TestClient in the tests
