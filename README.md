@@ -7,6 +7,28 @@ Isolation Forest, SHAP explanations, a FastAPI backend and a React dashboard.
 This is an academic portfolio project. It does not claim production-grade
 security or guaranteed detection of unseen ("zero-day") attacks.
 
+[![CI](https://github.com/tejas-sangale04/Intrusion-Detection-System-using-Random-Forest/actions/workflows/ci.yml/badge.svg)](https://github.com/tejas-sangale04/Intrusion-Detection-System-using-Random-Forest/actions/workflows/ci.yml)
+
+![Dashboard overview](reports/figures/dashboard/overview.png)
+
+## Key results
+
+All on CIC-IDS2017 MachineLearningCSV after removing 308,381 exact duplicate
+rows. Details and caveats are in each phase's section.
+
+| Question | Result | Where |
+|---|---|---|
+| Does the Random Forest recognise attack types it was trained on? | Yes. On a random 15% test split: precision 99.56%, recall 99.63%, false-positive rate 0.09% | Phase 3 |
+| Does it recognise an attack *family* removed from training? | Mostly not. Recall on the held-out family: Bot 0%, Brute Force 0.07%, DoS 0.6%, PortScan 0.17%, Web Attack 13.1%, DDoS 63.7% | Phase 4 |
+| Does the benign-only Isolation Forest help? | Partly. At a 5% false-positive budget, the hybrid catches 54% of unseen DoS, 29% of unseen Bot and 82% of unseen DDoS. For brute force (0.07%), web attacks (13.1%) and port scans (0.5%) it adds almost nothing | Phase 5 |
+| What does the classifier rely on? | Packet-size statistics overall; for web brute force and XSS a timing value (`Fwd IAT Min`) that looks like a lab artefact | Phase 6 |
+| Does the deployed API reproduce the offline numbers? | Yes, exactly, on all 378,355 test flows replayed through it | Phase 9 |
+| Does the anomaly threshold transfer? | Not reliably. Set for 1% false positives, it alerted on 2.9% of one Friday afternoon's benign flows | Phase 9 |
+
+The short version: very high scores on familiar attacks, weak detection of
+genuinely new attack families, and explanations that expose likely
+shortcuts. That gap is the main finding, not a footnote.
+
 ## Status
 
 | Phase | What | State |
@@ -20,12 +42,13 @@ security or guaranteed detection of unseen ("zero-day") attacks.
 | 7 | FastAPI backend | **Done** (offline mode; see below) |
 | 8 | React dashboard | **Done** (offline demo mode; see below) |
 | 9 | Dataset replay | **Done** (simulated feed; see below). Optional live flows in an authorised lab: not built |
-| 10 | Optional reinforcement-learning response simulation | Planned |
+| 10 | Optional reinforcement-learning response simulation | Not started (optional) |
+| 11 | Documentation, CI (Linux and Windows) and end-to-end quick start | **Done** |
 
 Every dataset number or model result in this README was produced by the code
 in this repository.
 
-## Project layout (current)
+## Project layout
 
 ```
 data/raw/           original CSVs or MachineLearningCSV.zip (never modified, not in Git)
@@ -41,20 +64,24 @@ src/models/train.py, evaluate.py, predict.py  baselines, metrics, scoring CSVs
 src/models/generalization.py  held-out family / day experiments, port ablation
 src/anomaly/isolation_forest.py  benign-only anomaly detector, hybrid policy
 src/explainability/shap_explainer.py  per-flow and global SHAP explanations
-backend/            FastAPI service: main.py, schemas.py, services/ (detector, store, reports)
-examples/           request bodies built from real test-split flows, requests.http
-frontend/           React + TypeScript dashboard (Vite)
 src/replay/replay.py  replays recorded flows through the API at a set rate
-reports/            dataset_inspection.md, figures/inspection/, metrics/inspection/
-tests/              pytest suite using small hand-built CSVs
+backend/            FastAPI service: main.py, schemas.py, services/ (detector, store, reports)
+frontend/           React + TypeScript dashboard (Vite)
+examples/           request bodies built from real test-split flows, requests.http
+models/             trained pipelines (generated, not in Git)
+reports/            generated report, figures/ and metrics/ for every phase
+tests/              pytest suite using small hand-built CSVs and tiny models
+.github/workflows/ci.yml  tests on Linux and Windows, dashboard build
 ```
-
-Folders for later phases are created when those phases are built, so the tree only shows what exists.
 
 ## Setup (Windows, VS Code)
 
+You need Python 3.10 or newer (3.12 recommended), Git, and for the dashboard
+Node.js 22 LTS (the installer from nodejs.org).
+
 ```powershell
-cd ids
+git clone https://github.com/tejas-sangale04/Intrusion-Detection-System-using-Random-Forest.git
+cd Intrusion-Detection-System-using-Random-Forest
 py -3.12 -m venv .venv
 .venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
@@ -63,7 +90,34 @@ python -m pytest
 ```
 
 On macOS/Linux use `python3 -m venv .venv` and `source .venv/bin/activate`.
-In VS Code, pick `.venv` with *Python: Select Interpreter*.
+In VS Code, pick `.venv` with *Python: Select Interpreter*. If PowerShell
+refuses to run `Activate.ps1`, run
+`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once.
+
+The tests need neither the dataset nor trained models, so `python -m pytest`
+works straight after installing. CI runs the same tests on Linux and Windows.
+
+## Quick start: from the dataset to the dashboard
+
+After putting the dataset in `data/raw/` (next section), run these from the
+repository root, in order. Times are from a 4-core machine.
+
+```powershell
+python -m src.data.inspect_dataset --raw-dir data/raw   # Phase 1 report (optional)
+python -m src.data.preprocess                           # clean, de-duplicate, split
+python -m src.features.feature_pipeline                 # fit preprocessing on train only
+python -m src.models.train                              # Phase 3, about 10 minutes
+python -m src.models.generalization                     # Phase 4, about 45 minutes
+python -m src.anomaly.isolation_forest                  # Phase 5, about 1 minute
+python -m src.explainability.shap_explainer             # Phase 6, about 4 minutes
+
+uvicorn backend.main:app --port 8000                    # terminal 1: the API
+cd frontend; npm install; npm run dev                   # terminal 2: http://localhost:5173
+python -m src.replay.replay --rate 200                  # terminal 3: a simulated feed
+```
+
+Phase 4 is only needed for the held-out-family results; the API needs the
+models from Phases 3 and 5.
 
 ## Dataset
 
@@ -548,7 +602,7 @@ models.
 
 ## Phase 8: React dashboard
 
-Needs Node.js 20 or newer (on Windows, the LTS installer from nodejs.org).
+Needs Node.js 22 LTS or newer (on Windows, the installer from nodejs.org).
 Start the API first (Phase 7), then in a second terminal:
 
 ```powershell
@@ -673,13 +727,27 @@ flows from all five days. On this one afternoon's benign traffic it fires
 about three times as often. A deployed threshold would need calibrating on
 the network it watches, and a replay is a cheap way to see that.
 
-## Limitations (to be expanded with real findings)
+## Limitations
 
 * CIC-IDS2017 was recorded in 2017 in a lab network with scripted attacks; it
   is old, heavily imbalanced, and differs from real enterprise traffic.
   Results on it do not imply performance on modern production networks.
 * Each attack type was recorded on a single day (confirmed in Phase 1), so
   attack-family and day effects are confounded. Phase 4 examines this.
+* The near-perfect random-split scores (Phase 3) measure recognition of
+  attack campaigns already seen in training. Against a family left out of
+  training, the classifier mostly fails (Phase 4), and the anomaly detector
+  recovers only part of that (Phase 5). Nothing here detects unseen attacks
+  reliably.
+* SHAP shows the model leaning on features that are probably properties of
+  the lab rather than of the attacks: `Fwd IAT Min` for web brute force and
+  XSS, and initial TCP window sizes for Bot and SQL injection (Phase 6).
+* The anomaly threshold is calibrated on validation traffic from all five
+  days. On one afternoon's benign traffic it fired at almost three times its
+  target rate (Phase 9). It would need recalibrating on any other network.
+* Several attack labels have very few test flows (Heartbleed 1,
+  Infiltration 5, SQL injection 3), so their per-label percentages are not
+  meaningful.
 * Replay timing is synthetic (fixed rate), because the flow files carry no
   timestamps. Live capture in an authorised lab is not built.
 * The API explains the Random Forest only. When a flow is flagged as
