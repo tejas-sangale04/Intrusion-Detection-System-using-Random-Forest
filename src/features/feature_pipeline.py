@@ -72,11 +72,14 @@ class SchemaGuard(BaseEstimator, TransformerMixin):
         missing = [c for c in expected if c not in X.columns]
         if missing:
             raise ValueError(f"Missing {len(missing)} required feature(s): {missing}")
-        out = X[expected].apply(pd.to_numeric, errors="coerce")
-        bad = out.isna() & X[expected].notna()
-        if bad.to_numpy().any():
-            cols = out.columns[bad.any()].tolist()
-            raise ValueError(f"Non-numeric values in feature(s): {cols}")
+        out = X[expected]
+        non_numeric = [c for c in expected if not pd.api.types.is_numeric_dtype(out[c])]
+        if non_numeric:  # only coerce columns that need it; numeric ones are already fine
+            coerced = out[non_numeric].apply(pd.to_numeric, errors="coerce")
+            bad = coerced.isna() & out[non_numeric].notna()
+            if bad.to_numpy().any():
+                raise ValueError(f"Non-numeric values in feature(s): {coerced.columns[bad.any()].tolist()}")
+            out = out.assign(**coerced)
         return out.astype("float64")
 
     def get_feature_names_out(self, input_features=None):

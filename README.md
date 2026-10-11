@@ -14,8 +14,8 @@ security or guaranteed detection of unseen ("zero-day") attacks.
 | 1 | Dataset discovery, inspection and EDA | **Done** (all 8 files, see below) |
 | 2 | Cleaning and leakage-safe preprocessing | **Done** (see below) |
 | 3 | Baseline models (LR, DT, RF, HistGradientBoosting) | **Done** (random split; see below) |
-| 4 | Leakage control and held-out attack-family evaluation | Planned |
-| 5 | Isolation Forest and hybrid decision policy | Planned |
+| 4 | Leakage control and held-out attack-family evaluation | **Done** (see below) |
+| 5 | Isolation Forest and hybrid decision policy | **Done** (see below) |
 | 6 | SHAP explanations | Planned |
 | 7 | FastAPI backend | Planned |
 | 8 | React dashboard | Planned |
@@ -38,6 +38,8 @@ src/data/labels.py  label normalisation, label -> family -> binary mapping
 src/data/preprocess.py        de-duplication, float32 parquet, stratified split
 src/features/feature_pipeline.py  scikit-learn preprocessing fitted on train only
 src/models/train.py, evaluate.py, predict.py  baselines, metrics, scoring CSVs
+src/models/generalization.py  held-out family / day experiments, port ablation
+src/anomaly/isolation_forest.py  benign-only anomaly detector, hybrid policy
 reports/            dataset_inspection.md, figures/inspection/, metrics/inspection/
 tests/              pytest suite using small hand-built CSVs
 ```
@@ -272,6 +274,125 @@ What this shows, and what it does not:
   are typical of CIC-IDS2017 under this protocol and should not be read as
   real-world performance. Phase 4 holds out whole days and attack families to
   measure generalisation.
+
+## Phase 4: generalisation beyond the training distribution
+
+```powershell
+python -m src.models.generalization   # about 45 minutes on 4 cores
+```
+
+Phase 3's near-perfect scores came from a random split, where train and test
+share the same attack campaigns. Three harder tests, each with preprocessing
+refitted on its own training rows and the threshold fixed at 0.5 (tuning it
+on held-out attacks would use test labels):
+
+**1. Leave one attack family out.** Every flow of family F is removed from
+training; the model is scored on the normal test split. Recall on F is the
+detection rate for an attack type the classifier never saw.
+
+| Held-out family (test flows) | RF recall on it | HGB recall on it | RF recall on other attacks | RF FPR | RF ROC-AUC, held-out vs BENIGN |
+|---|---|---|---|---|---|
+| Bot (293) | 0.0% | 0.0% | 99.7% | 0.080% | 0.52 |
+| Brute Force (1,373) | 0.07% | 0.07% | 99.6% | 0.090% | 0.64 |
+| DDoS (19,203) | 63.7% | 63.8% | 99.5% | 0.089% | 0.88 |
+| DoS (29,063) | 0.6% | 1.1% | 99.7% | 0.058% | 0.97 |
+| PortScan (13,623) | 0.17% | 0.21% | 99.5% | 0.044% | 0.58 |
+| Web Attack (321) | 13.1% | 0.6% | 99.6% | 0.090% | 0.97 |
+| Infiltration (5) | 0% | 0% | 99.6% | 0.087% | 0.99 |
+| Heartbleed (1) | 0% | 100% | 99.6% | 0.089% | 0.99 |
+
+![Leave one family out](reports/figures/generalization/leave_one_family_out.png)
+
+**2. Held-out day.** Train on Monday-Thursday (all rows), test on all of
+Friday (395,106 BENIGN and 220,788 attack flows, all of them Bot, PortScan or
+DDoS, none seen before Friday). Random Forest catches 29.1% of Friday's
+attacks (DDoS 50.1%, PortScan 0.16%, Bot 0%) at 0.033% FPR;
+HistGradientBoosting catches 0.11%.
+
+**3. Destination Port.** Retraining the Random Forest with the port on the
+random split leaves F1 unchanged (0.9958 vs 0.9959) and lowers FPR from
+0.089% to 0.070%. Excluding it costs almost nothing in-distribution, so it
+stays excluded.
+
+What this means:
+
+* **The supervised model recognises attacks it was trained on, not attacks in
+  general.** Removing a family from training drops recall on it from ~99% to
+  under 1% for Bot, Brute Force, DoS and PortScan, and to 13% (RF) or 0.6%
+  (HGB) for web attacks. Only DDoS is partly caught (64%), plausibly because
+  it resembles the DoS floods still in training.
+* **It still ranks some unseen attacks above benign traffic** (ROC-AUC 0.97 for
+  held-out DoS and Web Attack) but scores them below 0.5. A lower threshold
+  would catch more, at a false-alarm cost that cannot be set honestly without
+  labels for the unseen attack, which motivates an anomaly detector.
+* **The random-split numbers from Phase 3 should be read as an upper bound,**
+  and the leave-one-out and held-out-day numbers as a more realistic picture.
+  Rows for Infiltration (5 test flows) and Heartbleed (1) are anecdotes.
+* The two models differ a lot on the held-out day (29% vs 0.1%) despite
+  near-identical random-split scores, which shows how unstable unseen-attack
+  detection by a supervised model is.
+
+## Phase 5: Isolation Forest and the hybrid decision policy
+
+```powershell
+python -m src.anomaly.isolation_forest   # about 1 minute; needs Phase 3 and 4 outputs for the hybrid tables
+```
+
+The detector is trained on **BENIGN training flows only** (1,467,539), using
+the scaled preprocessing (signed log transform and standardisation, because
+Isolation Forest splits uniformly between a feature's min and max). Its
+threshold is set on **validation BENIGN flows only**, at a target
+false-positive rate (1% and 5%). No attack label is used anywhere in it.
+
+**Hybrid policy:** classifier probability >= 0.5 -> `known_attack`; otherwise,
+anomaly score >= threshold -> `anomaly` (sent for analyst review, not called
+malicious); otherwise `benign`. The anomaly detector can only add alerts.
+
+Isolation Forest alone, test split (63,882 attacks, 314,473 BENIGN):
+
+| Threshold | Recall | Precision | FPR | ROC-AUC | PR-AUC |
+|---|---|---|---|---|---|
+| 1% validation FPR | 1.1% | 18.6% | 1.00% | 0.876 | 0.497 |
+| 5% validation FPR | 35.2% | 59.1% | 4.96% | 0.876 | 0.497 |
+
+Hybrid on held-out families (Random Forest trained without the family, as in
+Phase 4; the same Isolation Forest throughout):
+
+| Held-out family | RF alone | Hybrid @1% | Hybrid @5% |
+|---|---|---|---|
+| Bot | 0.0% | 0.0% | 29.4% |
+| Brute Force | 0.07% | 0.07% | 0.07% |
+| DDoS | 63.7% | 63.7% | 81.5% |
+| DoS | 0.6% | 2.9% | 54.4% |
+| PortScan | 0.17% | 0.48% | 0.53% |
+| Web Attack | 13.1% | 13.1% | 13.1% |
+| Infiltration (5 flows) | 0% | 60% | 100% |
+| BENIGN flagged (FPR) | 0.04-0.09% | 1.03-1.08% | 4.98-5.03% |
+
+![Anomaly scores](reports/figures/anomaly/anomaly_scores_by_label.png)
+
+What this means:
+
+* **At a 1% false-alarm budget the anomaly detector adds very little.** Most
+  attack flows score inside the range of normal benign variation (box plot
+  above), so only the most extreme ones cross the threshold.
+* **At 5% it recovers part of the volumetric attacks the classifier missed:**
+  unseen DoS goes from 0.6% to 54%, Bot from 0% to 29%, DDoS from 64% to 82%.
+  The price is real: about 5% of benign flows become review items (15,580
+  `anomaly` decisions on the test split), which would swamp an analyst on a
+  real network.
+* **Attacks that look like normal traffic stay invisible** to both detectors:
+  brute-force logins, web attacks and port scans are short, ordinary-looking
+  flows. Their anomaly scores sit well inside the range of benign scores,
+  far below either threshold.
+* On the random split the hybrid barely changes recall (99.63% -> 99.63% at
+  1%, 99.71% at 5%) and raises FPR from 0.09% to 1.1% / 5.0%, because the
+  classifier already catches known attacks.
+* **This is not zero-day detection.** It is a measured, partial improvement
+  on a few attack families, bought with a much higher false-positive rate.
+  Hyperparameters were left at sensible defaults (200 trees, 256 samples per
+  tree) rather than tuned, since tuning against attack labels would undercut
+  the "unseen attack" claim.
 
 ## Limitations (to be expanded with real findings)
 
