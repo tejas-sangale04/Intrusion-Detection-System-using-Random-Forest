@@ -1,0 +1,134 @@
+{
+  "DDoS": {
+    "probability": 1.0,
+    "is_attack": true,
+    "base_value": 0.16882713081222644,
+    "top_features": [
+      {
+        "feature": "Bwd Packet Length Std",
+        "value": 1757.7899169921875,
+        "shap": 0.12293162596018987
+      },
+      {
+        "feature": "Bwd Packet Length Mean",
+        "value": 1933.5,
+        "shap": 0.10955516380091139
+      },
+      {
+        "feature": "Packet Length Std",
+        "value": 1434.5716552734375,
+        "shap": 0.06359314908221785
+      },
+      {
+        "feature": "Packet Length Variance",
+        "value": 2057995.875,
+        "shap": 0.06216907604401847
+      },
+      {
+        "feature": "Subflow Bwd Bytes",
+        "value": 11601.0,
+        "shap": 0.0589726179491598
+      }
+    ],
+    "summary": "The model flagged as attack (attack probability 1.000, threshold 0.5; average over reference traffic 0.169). Largest pushes towards attack: Bwd Packet Length Std = 1,758 (+0.123); Bwd Packet Length Mean = 1,934 (+0.110); Packet Length Std = 1,435 (+0.064). Largest pushes towards benign: Active Max = 2.69e+05 (-0.003); Active Min = 2.69e+05 (-0.003); min_seg_size_forward = 20 (-0.003). These describe what the model relied on, not proof of what the traffic is."
+  },
+  "PortScan": {
+    "probability": 1.0,
+    "is_attack": true,
+    "base_value": 0.16882713081222644,
+    "top_features": [
+      {
+        "feature": "min_seg_size_forward",
+        "value": 40.0,
+        "shap": 0.07804377126989427
+      },
+      {
+        "feature": "PSH Flag Count",
+        "value": 1.0,
+        "shap": 0.06913852338373432
+      },
+      {
+        "feature": "Packet Length Std",
+        "value": 3.464101552963257,
+        "shap": 0.06750648541422809
+      },
+      {
+        "feature": "Packet Length Variance",
+        "value": 12.0,
+        "shap": 0.06622520895302565
+      },
+      {
+        "feature": "Fwd Packet Length Max",
+        "value": 0.0,
+        "shap": 0.060093548725012526
+      }
+    ],
+    "summary": "The model flagged as attack (attack probability 1.000, threshold 0.5; average over reference traffic 0.169). Largest pushes towards attack: min_seg_size_forward = 40 (+0.078); PSH Flag Count = 1 (+0.069); Packet Length Std = 3.464 (+0.068). Largest pushes towards benign: Bwd Packet Length Std = 0 (-0.005); Fwd IAT Std = 0 (-0.003); Bwd IAT Std = 0 (-0.002). These describe what the model relied on, not proof of what the traffic is."
+  },
+  "Bot": {
+    "probability": 0.0,
+    "is_attack": false,
+    "base_value": 0.16882713081222644,
+    "top_features": [
+      {
+        "feature": "PSH Flag Count",
+        "value": 0.0,
+        "shap": -0.024764178411617262
+      },
+      {
+        "feature": "Packet Length Std",
+        "value": 0.0,
+        "shap": -0.014762301259393788
+      },
+      {
+        "feature": "Bwd Packet Length Std",
+        "value": 0.0,
+        "shap": -0.011228041427021666
+      },
+      {
+        "feature": "Packet Length Variance",
+        "value": 0.0,
+        "shap": -0.01100333703915375
+      },
+      {
+        "feature": "Max Packet Length",
+        "value": 6.0,
+        "shap": 0.010399513808605555
+      }
+    ],
+    "summary": "The model classified as benign (attack probability 0.000, threshold 0.5; average over reference traffic 0.169). Largest pushes towards attack: Max Packet Length = 6 (+0.010); Fwd Packet Length Max = 6 (+0.009); Init_Win_bytes_backward = 256 (+0.003). Largest pushes towards benign: PSH Flag Count = 0 (-0.025); Packet Length Std = 0 (-0.015); Bwd Packet Length Std = 0 (-0.011). These describe what the model relied on, not proof of what the traffic is."
+  },
+  "BENIGN": {
+    "probability": 0.0,
+    "is_attack": false,
+    "base_value": 0.16882713081222644,
+    "top_features": [
+      {
+        "feature": "Total Backward Packets",
+        "value": 16.0,
+        "shap": -0.014640805118455445
+      },
+      {
+        "feature": "Packet Length Mean",
+        "value": 293.441162109375,
+        "shap": -0.01443832000598019
+      },
+      {
+        "feature": "Fwd Packet Length Max",
+        "value": 2165.0,
+        "shap": -0.013604971706994488
+      },
+      {
+        "feature": "Bwd Packet Length Mean",
+        "value": 342.1875,
+        "shap": -0.011726807087984861
+      },
+      {
+        "feature": "Bwd Packet Length Std",
+        "value": 556.85595703125,
+        "shap": -0.010888005565688879
+      }
+    ],
+    "summary": "The model classified as benign (attack probability 0.000, threshold 0.5; average over reference traffic 0.169). Largest pushes towards attack: PSH Flag Count = 1 (+0.006); Bwd IAT Std = 5.035e+06 (+0.005); act_data_pkt_fwd = 4 (+0.004). Largest pushes towards benign: Total Backward Packets = 16 (-0.015); Packet Length Mean = 293.4 (-0.014); Fwd Packet Length Max = 2,165 (-0.014). These describe what the model relied on, not proof of what the traffic is."
+  }
+}

@@ -16,7 +16,7 @@ security or guaranteed detection of unseen ("zero-day") attacks.
 | 3 | Baseline models (LR, DT, RF, HistGradientBoosting) | **Done** (random split; see below) |
 | 4 | Leakage control and held-out attack-family evaluation | **Done** (see below) |
 | 5 | Isolation Forest and hybrid decision policy | **Done** (see below) |
-| 6 | SHAP explanations | Planned |
+| 6 | SHAP explanations | **Done** (see below) |
 | 7 | FastAPI backend | Planned |
 | 8 | React dashboard | Planned |
 | 9 | Dataset replay, then optional live flows in an authorised lab | Planned |
@@ -40,6 +40,7 @@ src/features/feature_pipeline.py  scikit-learn preprocessing fitted on train onl
 src/models/train.py, evaluate.py, predict.py  baselines, metrics, scoring CSVs
 src/models/generalization.py  held-out family / day experiments, port ablation
 src/anomaly/isolation_forest.py  benign-only anomaly detector, hybrid policy
+src/explainability/shap_explainer.py  per-flow and global SHAP explanations
 reports/            dataset_inspection.md, figures/inspection/, metrics/inspection/
 tests/              pytest suite using small hand-built CSVs
 ```
@@ -393,6 +394,67 @@ What this means:
   Hyperparameters were left at sensible defaults (200 trees, 256 samples per
   tree) rather than tuned, since tuning against attack labels would undercut
   the "unseen attack" claim.
+
+## Phase 6: SHAP explanations
+
+```powershell
+python -m src.explainability.shap_explainer   # about 4 minutes
+```
+
+`FlowExplainer` wraps the saved Random Forest pipeline with SHAP's exact
+`TreeExplainer`. For one flow it returns the attack probability, each model
+feature's contribution, and a plain-language summary. The API (Phase 7) will
+use it to explain individual alerts.
+
+**Reading the numbers.** Contributions are in units of attack probability.
+The reference value is 0.169 (the forest's average output on its training
+data). For every flow, reference + sum of contributions = the model's
+probability. The script checks this; the largest error was 1e-10. Positive
+values push towards "attack", negative towards "benign".
+
+**Cost.** The forest's trees average about 5,900 nodes and depth 41, so exact
+SHAP takes about **0.35 s per flow** on 4 cores. That is fine for explaining
+one alert on demand, but too slow for every flow (378k test flows would take
+about 37 hours). Global importance therefore uses a stratified sample of 649
+test flows: 200 BENIGN plus up to 40 of each attack label. Rare attacks are
+represented, but averages reflect the sample's class mix, not the real one.
+Importance is reported per label as well for that reason.
+
+Worked example (a DDoS test flow, from `reports/metrics/explainability/examples.json`):
+
+> The model flagged as attack (attack probability 1.000, threshold 0.5;
+> average over reference traffic 0.169). Largest pushes towards attack:
+> Bwd Packet Length Std = 1,758 (+0.123); Bwd Packet Length Mean = 1,934
+> (+0.110); Packet Length Std = 1,435 (+0.064).
+
+The sample also contains a Bot flow the model misses (probability 0.000). Its
+explanation shows why: zero `PSH Flag Count` and zero packet-length
+variation look like ordinary idle traffic to the model.
+
+![Importance by label](reports/figures/explainability/importance_by_label.png)
+
+What the explanations reveal:
+
+* **Overall, packet-size statistics dominate.** The top features are
+  `Bwd Packet Length Std`, `Fwd Packet Length Max`, `Init_Win_bytes_backward`
+  and the packet-length variance and mean family
+  (`reports/figures/explainability/global_importance.png`).
+* **Different attacks are recognised by different features.** DoS and
+  Heartbleed rely on backward packet-size statistics, PortScan on
+  `PSH Flag Count` and packet-length spread, and SSH-Patator on
+  `Bwd Header Length`.
+* **Web brute-force and XSS flows are recognised mainly by `Fwd IAT Min`**, the smallest gap
+  between forward packets. That is a timing property of how the attack tool
+  sent requests in this lab, not of the attack itself (an XSS payload in a
+  slower browser would look different). This fits Phase 4, where web
+  attacks were barely detected once removed from training. The explanation
+  helps spot a likely shortcut, which is exactly what it is for.
+* `Init_Win_bytes_*` (initial TCP window sizes) matter for Bot and SQL
+  injection. Window sizes depend on the operating systems of the lab hosts,
+  so this is another feature that may not transfer to other networks.
+* SHAP explains the model, not the traffic. A large contribution means the
+  model relied on that value. It does not mean the value caused or proves
+  an attack, and correlated features can split credit arbitrarily.
 
 ## Limitations (to be expanded with real findings)
 
